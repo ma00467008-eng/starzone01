@@ -1,5 +1,13 @@
 {
   "version": "7",
   "dialect": "postgresql",
-  "entries": []
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1793110711431,
+      "tag": "0000_star_zone_core",
+      "breakpoints": true
+    }
+  ]
 }
