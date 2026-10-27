@@ -81,7 +81,7 @@ export const registerUser = createServerFn({ method: "POST" })
       email: phoneToEmail(phone),
       password: data.password,
       email_confirm: true,
-      user_metadata: { phone },
+      app_metadata: { starzone: "true", phone },
     });
     if (error || !created.user) throw new Error(error?.message?.includes("already") ? "This phone number is already registered" : "Registration failed");
     const recovery = randomRecovery();
