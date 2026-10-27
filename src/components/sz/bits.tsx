@@ -8,8 +8,8 @@ import { cn } from "@/lib/utils";
 
 export function Logo({ className }: { className?: string }) {
   const { settings } = useApp();
-  const name: string = settings.site?.name || "STAR ZONE";
-  const logo: string | undefined = settings.site?.logo_url;
+  const name: string = settings["site"]?.name || "STAR ZONE";
+  const logo: string | undefined = settings["site"]?.logo_url;
   return (
     <Link to="/" className={cn("flex items-center gap-2", className)}>
       {logo ? <img src={logo} alt={name} className="h-8 w-8 rounded-lg object-cover" /> : (
@@ -42,7 +42,7 @@ export function Balance({ className }: { className?: string }) {
 const HUES = [230, 210, 255, 195, 245, 220, 265, 200];
 export function Avatar({ n, name, className }: { n?: number; name?: string; className?: string }) {
   return (
-    <span className={cn("grid place-items-center rounded-full font-display font-bold text-primary-foreground", className)} style={{ background: `linear-gradient(135deg, oklch(0.8 0.12 ${HUES[((n ?? 1) - 1) % 8]}), oklch(0.5 0.15 ${HUES[((n ?? 1) - 1) % 8] + 15}))` }}>
+    <span className={cn("grid place-items-center rounded-full font-display font-bold text-primary-foreground", className)} style={{ background: `linear-gradient(135deg, oklch(0.8 0.12 ${HUES[((n ?? 1) - 1) % 8]}), oklch(0.5 0.15 ${(HUES[((n ?? 1) - 1) % 8] ?? 230) + 15}))` }}>
       {(name || "S").slice(0, 1).toUpperCase()}
     </span>
   );
@@ -74,11 +74,11 @@ export function TopBar() {
         <Logo />
         {session ? (
           <div className="flex items-center gap-2">
-            <Link to="/account/coins" className="flex items-center gap-1.5 rounded-full bg-secondary py-1 pl-3 pr-1 text-sm text-secondary-foreground">
+            <Link to="/" className="flex items-center gap-1.5 rounded-full bg-secondary py-1 pl-3 pr-1 text-sm text-secondary-foreground">
               <Balance />
               <span className="grid h-6 w-6 place-items-center rounded-full bg-gradient-primary text-primary-foreground" aria-label={t("home.add_coins")}><Plus className="h-3.5 w-3.5" /></span>
             </Link>
-            <Link to="/account/notifications" className="relative grid h-9 w-9 place-items-center rounded-full bg-secondary text-secondary-foreground" aria-label={t("acc.notifications")}>
+            <Link to="/" className="relative grid h-9 w-9 place-items-center rounded-full bg-secondary text-secondary-foreground" aria-label={t("acc.notifications")}>
               <Bell className="h-4.5 w-4.5" />
               {!!unread && <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">{unread > 9 ? "9+" : unread}</span>}
             </Link>

@@ -44,7 +44,7 @@ export function CaptchaDialog({ open, onClose, onPassed }: { open: boolean; onCl
   useEffect(() => {
     if (!ch || !bg.current || !pc.current) return;
     const img = new Image();
-    img.src = IMAGES[ch.image % IMAGES.length];
+    img.src = IMAGES[ch.image % IMAGES.length] ?? "/banners/b1.jpg";
     img.onload = () => {
       const b = bg.current!.getContext("2d")!; const p = pc.current!.getContext("2d")!;
       b.clearRect(0, 0, W, H); p.clearRect(0, 0, P + 12, H);

@@ -51,12 +51,12 @@ function AuthPage() {
   const register = useServerFn(registerUser);
   const recover = useServerFn(recoverPassword);
 
-  const start = (e: React.FormEvent) => {
+  const start = (e: React.FormEvent): void => {
     e.preventDefault();
-    if (!phone.trim() || !pw) return toast.error(t("auth.phone") + " / " + t("auth.password"));
-    if (mode !== "login" && pw !== pw2) return toast.error(t("auth.mismatch"));
-    if (mode !== "login" && pw.length < 6) return toast.error("Password must be at least 6 characters");
-    if (mode === "recover" && !code.trim()) return toast.error(t("auth.recovery_code"));
+    if (!phone.trim() || !pw) { toast.error(t("auth.phone") + " / " + t("auth.password")); return; }
+    if (mode !== "login" && pw !== pw2) { toast.error(t("auth.mismatch")); return; }
+    if (mode !== "login" && pw.length < 6) { toast.error("Password must be at least 6 characters"); return; }
+    if (mode === "recover" && !code.trim()) { toast.error(t("auth.recovery_code")); return; }
     setCaptcha(true);
   };
 
@@ -70,7 +70,7 @@ function AuthPage() {
         navigate({ to: "/", replace: true });
       } else if (mode === "register") {
         const r = await register({ data: { phone, password: pw, captchaId } });
-        if (r.access_token) await supabase.auth.setSession({ access_token: r.access_token, refresh_token: r.refresh_token });
+        if (r.access_token) await supabase.auth.setSession({ access_token: r.access_token, refresh_token: r.refresh_token ?? "" });
         sessionStorage.setItem("sz_popups", "pending");
         setRecovery(r.recovery);
       } else {
@@ -82,7 +82,7 @@ function AuthPage() {
     } catch (e) { toast.error(errMsg(e)); } finally { setBusy(false); }
   };
 
-  const closed = settings.site?.registration_open === false;
+  const closed = settings["site"]?.registration_open === false;
 
   return (
     <div className="min-h-screen bg-gradient-hero">
