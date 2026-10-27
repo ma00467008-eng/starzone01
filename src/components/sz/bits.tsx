@@ -39,10 +39,10 @@ export function Balance({ className }: { className?: string }) {
   );
 }
 
-const AV = ["from-sky-400 to-blue-600", "from-cyan-400 to-sky-700", "from-indigo-400 to-blue-700", "from-teal-400 to-cyan-700", "from-blue-400 to-indigo-700", "from-sky-300 to-cyan-600", "from-blue-500 to-sky-800", "from-cyan-300 to-blue-600"];
+const HUES = [230, 210, 255, 195, 245, 220, 265, 200];
 export function Avatar({ n, name, className }: { n?: number; name?: string; className?: string }) {
   return (
-    <span className={cn("grid place-items-center rounded-full bg-gradient-to-br font-display font-bold text-primary-foreground", AV[((n ?? 1) - 1) % 8], className)}>
+    <span className={cn("grid place-items-center rounded-full font-display font-bold text-primary-foreground", className)} style={{ background: `linear-gradient(135deg, oklch(0.8 0.12 ${HUES[((n ?? 1) - 1) % 8]}), oklch(0.5 0.15 ${HUES[((n ?? 1) - 1) % 8] + 15}))` }}>
       {(name || "S").slice(0, 1).toUpperCase()}
     </span>
   );
