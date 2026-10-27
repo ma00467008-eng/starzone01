@@ -8,6 +8,13 @@
       "when": 1793110711431,
       "tag": "0000_star_zone_core",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1793110822876,
+      "tag": "0001_star_zone_games",
+      "breakpoints": true
     }
   ]
 }

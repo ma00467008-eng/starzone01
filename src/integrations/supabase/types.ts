@@ -686,11 +686,81 @@ export type Database = {
         }
         Relationships: []
       }
+      wingo_bets: {
+        Row: {
+          created_at: string | null
+          duration: number
+          game: string
+          id: number
+          kind: string
+          period: number
+          settled: boolean
+          stake: number
+          user_id: string
+          value: string
+        }
+        Insert: {
+          created_at?: string | null
+          duration: number
+          game: string
+          id?: number
+          kind: string
+          period: number
+          settled?: boolean
+          stake: number
+          user_id: string
+          value: string
+        }
+        Update: {
+          created_at?: string | null
+          duration?: number
+          game?: string
+          id?: number
+          kind?: string
+          period?: number
+          settled?: boolean
+          stake?: number
+          user_id?: string
+          value?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      _check_play: { Args: { _game: string; _stake: number }; Returns: string }
+      _chicken_p: { Args: { _d: string }; Returns: number }
+      _crash_settle: {
+        Args: {
+          _cash: number
+          s: Database["public"]["Tables"]["game_sessions"]["Row"]
+        }
+        Returns: Json
+      }
+      _finish: {
+        Args: {
+          _code: string
+          _game: string
+          _payout: number
+          _res: Json
+          _sel: Json
+          _stake: number
+          _u: string
+        }
+        Returns: number
+      }
+      _mines_mult: { Args: { _k: number; _m: number }; Returns: number }
+      _round_code: { Args: { _game: string }; Returns: string }
+      _wingo_mult: {
+        Args: { _kind: string; _n: number; _value: string }
+        Returns: number
+      }
+      _wingo_number: {
+        Args: { _duration: number; _game: string; _period: number }
+        Returns: number
+      }
       adjust_balance: {
         Args: {
           _amount: number
@@ -701,6 +771,43 @@ export type Database = {
         }
         Returns: number
       }
+      admin_adjust_balance: {
+        Args: { _amount: number; _reason: string; _user: string }
+        Returns: number
+      }
+      admin_conversations: {
+        Args: never
+        Returns: {
+          last_at: string
+          last_body: string
+          phone: string
+          uid: string
+          unread: number
+          user_id: string
+          username: string
+        }[]
+      }
+      admin_review_coin: {
+        Args: { _approve: boolean; _id: string; _note: string }
+        Returns: Json
+      }
+      admin_set_status: {
+        Args: { _status: string; _user: string }
+        Returns: undefined
+      }
+      admin_stats: { Args: never; Returns: Json }
+      chicken_cashout: { Args: { _session: string }; Returns: Json }
+      chicken_start: {
+        Args: { _difficulty: string; _stake: number }
+        Returns: Json
+      }
+      chicken_step: { Args: { _session: string }; Returns: Json }
+      clear_must_change: { Args: never; Returns: undefined }
+      crash_check: {
+        Args: { _cashout: boolean; _session: string }
+        Returns: Json
+      }
+      crash_start: { Args: { _auto: number; _stake: number }; Returns: Json }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -709,10 +816,38 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: never; Returns: boolean }
+      mines_cashout: { Args: { _session: string }; Returns: Json }
+      mines_reveal: { Args: { _session: string; _tile: number }; Returns: Json }
+      mines_start: { Args: { _mines: number; _stake: number }; Returns: Json }
       notify: {
         Args: { _body: string; _kind: string; _title: string; _user: string }
         Returns: undefined
       }
+      play_instant: {
+        Args: { _game: string; _params: Json; _stake: number }
+        Returns: Json
+      }
+      rand01: { Args: never; Returns: number }
+      redeem_gift: { Args: { _code: string }; Returns: Json }
+      submit_coin_request: {
+        Args: { _amount: number; _note: string }
+        Returns: Json
+      }
+      wingo_bet: {
+        Args: {
+          _duration: number
+          _game: string
+          _kind: string
+          _stake: number
+          _value: string
+        }
+        Returns: Json
+      }
+      wingo_history: {
+        Args: { _duration: number; _game: string; _n: number }
+        Returns: Json
+      }
+      wingo_settle: { Args: never; Returns: Json }
     }
     Enums: {
       app_role: "admin" | "user"
