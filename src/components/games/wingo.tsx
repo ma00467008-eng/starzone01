@@ -20,7 +20,7 @@ type Sel = { kind: "number" | "size" | "color"; value: string } | null;
 export function WingoGame({ game }: { game: GameRow }) {
   const { t, session } = useApp();
   const modes = MODES[game.slug] ?? [60];
-  const [dur, setDur] = useState(modes[0]);
+  const [dur, setDur] = useState<number>(modes[0] ?? 60);
   const [now, setNow] = useState(() => Date.now());
   const [sel, setSel] = useState<Sel>(null);
   const [stake, setStake] = useState(game.min_stake);
@@ -72,7 +72,7 @@ export function WingoGame({ game }: { game: GameRow }) {
     setBusy(true);
     const { data, error } = await supabase.rpc("wingo_bet", { _game: game.slug, _duration: dur, _kind: sel.kind, _value: sel.value, _stake: stake });
     setBusy(false);
-    if (error) return toast.error(errMsg(error));
+    if (error) { toast.error(errMsg(error)); return; }
     beep("click");
     after((data as { balance: number }).balance);
     qc.invalidateQueries({ queryKey: ["wingo-bets", game.slug] });

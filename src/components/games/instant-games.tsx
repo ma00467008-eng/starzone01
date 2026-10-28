@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { Card, PrimaryButton, StakeInput, useAfterPlay } from "@/components/sz/shell";
 import type { GameRow } from "./types";
 
-type Res = Record<string, any>;
+type Res = any; // eslint-disable-line @typescript-eslint/no-explicit-any
 function usePlay(game: GameRow) {
   const { t } = useApp();
   const after = useAfterPlay(game.slug);

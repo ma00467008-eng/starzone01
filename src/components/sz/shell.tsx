@@ -37,7 +37,7 @@ export function BottomNav() {
 export function AppShell({ children, title, back, nav = true }: { children: ReactNode; title?: string; back?: string; nav?: boolean }) {
   return (
     <div className={cn("min-h-screen", nav ? "pb-24" : "pb-8")}>
-      {title ? <PageHeader title={title} back={back} /> : <TopBar />}
+      {title ? <PageHeader title={title} {...(back ? { back } : {})} /> : <TopBar />}
       <main className="mx-auto max-w-3xl px-4 pt-4">{children}</main>
       {nav && <BottomNav />}
     </div>
