@@ -29,7 +29,7 @@ export function CrashGame({ game }: { game: GameRow }) {
     return () => { clearInterval(anim); clearInterval(poll); };
   }, [state]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const settle = (r: Record<string, number | boolean>) => {
+  const settle = (r: any) => {
     sidRef.current = null; setSid(null);
     after(r.balance as number);
     if (r.crashed && !(Number(r.payout) > 0)) {
@@ -46,7 +46,7 @@ export function CrashGame({ game }: { game: GameRow }) {
     const id = sidRef.current; if (!id) return;
     const { data, error } = await supabase.rpc("crash_check", { _session: id, _cashout: cashout });
     if (error) { if (cashout) toast.error(errMsg(error)); return; }
-    const r = data as Record<string, number | boolean>;
+    const r = data as any;
     if (r.crashed !== false || r.payout !== undefined) settle(r);
   };
 
@@ -55,7 +55,7 @@ export function CrashGame({ game }: { game: GameRow }) {
     const a = auto ? Number(auto) : null;
     const { data, error } = await supabase.rpc("crash_start", { _stake: stake, _auto: a as number });
     setBusy(false);
-    if (error) return toast.error(errMsg(error));
+    if (error) { toast.error(errMsg(error)); return; }
     const r = data as { session: string; balance: number };
     after(r.balance); beep("click");
     sidRef.current = r.session; setSid(r.session);
@@ -112,7 +112,7 @@ export function MinesGame({ game }: { game: GameRow }) {
     setBusy(true);
     const { data, error } = await supabase.rpc("mines_start", { _stake: stake, _mines: count });
     setBusy(false);
-    if (error) return toast.error(errMsg(error));
+    if (error) { toast.error(errMsg(error)); return; }
     const r = data as { session: string; balance: number };
     after(r.balance); beep("click");
     setSid(r.session); setRevealed([]); setMines([]); setMult(1); setNext(null);
@@ -122,7 +122,7 @@ export function MinesGame({ game }: { game: GameRow }) {
     setBusy(true);
     const { data, error } = await supabase.rpc("mines_reveal", { _session: sid, _tile: i });
     setBusy(false);
-    if (error) return toast.error(errMsg(error));
+    if (error) { toast.error(errMsg(error)); return; }
     const r = data as { mine?: boolean; mines?: number[]; multiplier?: number; next?: number; revealed?: number[]; balance?: number; payout?: number };
     if (r.mine) { setMines(r.mines ?? []); setRevealed((v) => [...v, i]); setSid(null); after(r.balance); beep("lose"); toast.error("Boom! You hit a mine"); return; }
     if (r.payout !== undefined) { setMines(r.mines ?? []); setRevealed((v) => [...v, i]); setSid(null); after(r.balance); beep("win"); toast.success(`${t("game.win")} +${fmt(r.payout)}`); return; }
@@ -133,7 +133,7 @@ export function MinesGame({ game }: { game: GameRow }) {
     setBusy(true);
     const { data, error } = await supabase.rpc("mines_cashout", { _session: sid });
     setBusy(false);
-    if (error) return toast.error(errMsg(error));
+    if (error) { toast.error(errMsg(error)); return; }
     const r = data as { payout: number; mines: number[]; balance: number };
     setMines(r.mines); setSid(null); after(r.balance); beep("win"); toast.success(`${t("game.win")} +${fmt(r.payout)}`);
   };
@@ -178,13 +178,13 @@ export function ChickenGame({ game }: { game: GameRow }) {
   const [hazard, setHazard] = useState<number | null>(null);
   const [mult, setMult] = useState(1);
   const [busy, setBusy] = useState(false);
-  const laneMult = (l: number) => Math.round((0.97 / Math.pow(1 - P[diff], l)) * 100) / 100;
+  const laneMult = (l: number) => Math.round((0.97 / Math.pow(1 - (P[diff] ?? 0.04), l)) * 100) / 100;
 
   const start = async () => {
     setBusy(true);
     const { data, error } = await supabase.rpc("chicken_start", { _stake: stake, _difficulty: diff });
     setBusy(false);
-    if (error) return toast.error(errMsg(error));
+    if (error) { toast.error(errMsg(error)); return; }
     const r = data as { session: string; balance: number };
     after(r.balance); beep("click"); setSid(r.session); setLane(0); setHazard(null); setMult(1);
   };
@@ -193,7 +193,7 @@ export function ChickenGame({ game }: { game: GameRow }) {
     setBusy(true);
     const { data, error } = await supabase.rpc("chicken_step", { _session: sid });
     setBusy(false);
-    if (error) return toast.error(errMsg(error));
+    if (error) { toast.error(errMsg(error)); return; }
     const r = data as { hit?: boolean; lane?: number; multiplier?: number; balance?: number; payout?: number; hazard?: number };
     if (r.hit) { setLane(r.lane!); setHazard(r.lane!); setSid(null); after(r.balance); beep("lose"); toast.error("Oh no! The chicken got caught"); return; }
     if (r.payout !== undefined) { setLane(20); setSid(null); after(r.balance); beep("win"); toast.success(`${t("game.win")} +${fmt(r.payout)}`); return; }
@@ -204,7 +204,7 @@ export function ChickenGame({ game }: { game: GameRow }) {
     setBusy(true);
     const { data, error } = await supabase.rpc("chicken_cashout", { _session: sid });
     setBusy(false);
-    if (error) return toast.error(errMsg(error));
+    if (error) { toast.error(errMsg(error)); return; }
     const r = data as { payout: number; balance: number; hazard: number };
     setHazard(r.hazard); setSid(null); after(r.balance); beep("win"); toast.success(`${t("game.win")} +${fmt(r.payout)}`);
   };
