@@ -74,11 +74,11 @@ export function TopBar() {
         <Logo />
         {session ? (
           <div className="flex items-center gap-2">
-            <Link to="/" className="flex items-center gap-1.5 rounded-full bg-secondary py-1 pl-3 pr-1 text-sm text-secondary-foreground">
+            <Link to="/coins" className="flex items-center gap-1.5 rounded-full bg-secondary py-1 pl-3 pr-1 text-sm text-secondary-foreground">
               <Balance />
               <span className="grid h-6 w-6 place-items-center rounded-full bg-gradient-primary text-primary-foreground" aria-label={t("home.add_coins")}><Plus className="h-3.5 w-3.5" /></span>
             </Link>
-            <Link to="/" className="relative grid h-9 w-9 place-items-center rounded-full bg-secondary text-secondary-foreground" aria-label={t("acc.notifications")}>
+            <Link to="/notifications" className="relative grid h-9 w-9 place-items-center rounded-full bg-secondary text-secondary-foreground" aria-label={t("acc.notifications")}>
               <Bell className="h-4.5 w-4.5" />
               {!!unread && <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">{unread > 9 ? "9+" : unread}</span>}
             </Link>
