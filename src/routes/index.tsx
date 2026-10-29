@@ -90,7 +90,7 @@ function Home() {
         {session && (
           <div className="flex items-center justify-between rounded-2xl bg-gradient-primary p-4 text-primary-foreground shadow-glow">
             <div><div className="text-xs opacity-80">{t("acc.balance")}</div><Balance className="text-2xl" /></div>
-            <Link to="/coins" className="rounded-full bg-card px-4 py-2 text-sm font-bold text-primary-deep">{t("home.add_coins")}</Link>
+            <Link to="/account" className="rounded-full bg-card px-4 py-2 text-sm font-bold text-primary-deep">{t("home.add_coins")}</Link>
           </div>
         )}
         {!!featured.length && <Section title={t("home.featured")} icon={Flame}><div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1">{featured.map((g) => <GameCard key={g.slug} g={g} wide />)}</div></Section>}
@@ -105,7 +105,7 @@ function Home() {
           <div className="space-y-2">
             <div className="grid grid-cols-2 gap-2">
               <Link to="/chat" className="rounded-xl bg-card px-3 py-2.5 text-center text-sm font-semibold shadow-card">{t("chat.title")}</Link>
-              <Link to="/support" className="rounded-xl bg-card px-3 py-2.5 text-center text-sm font-semibold shadow-card">{t("home.support")}</Link>
+              <Link to="/chat" className="rounded-xl bg-card px-3 py-2.5 text-center text-sm font-semibold shadow-card">{t("home.support")}</Link>
             </div>
             <SocialLinks />
           </div>
