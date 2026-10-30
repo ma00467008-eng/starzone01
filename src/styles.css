@@ -38,6 +38,12 @@
   --color-game-violet: var(--game-violet);
   --color-night: var(--night);
   --color-night-foreground: var(--night-foreground);
+  --color-casino: var(--casino);
+  --color-casino-panel: var(--casino-panel);
+  --color-casino-line: var(--casino-line);
+  --color-casino-muted: var(--casino-muted);
+  --color-orange: var(--orange);
+  --color-felt: var(--felt);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -84,6 +90,17 @@
   --game-violet: oklch(0.55 0.22 300);
   --night: oklch(0.24 0.06 255);
   --night-foreground: oklch(0.97 0.01 236);
+  --casino: oklch(0.2 0.04 258);
+  --casino-panel: oklch(0.26 0.05 258);
+  --casino-line: oklch(0.34 0.05 258);
+  --casino-muted: oklch(0.7 0.03 250);
+  --orange: oklch(0.72 0.19 50);
+  --felt: oklch(0.36 0.09 160);
+  --gradient-win: linear-gradient(180deg, oklch(0.86 0.15 85), oklch(0.68 0.17 60));
+  --gradient-lose: linear-gradient(180deg, oklch(0.55 0.04 255), oklch(0.35 0.04 258));
+  --gradient-bet: linear-gradient(180deg, oklch(0.72 0.18 149), oklch(0.56 0.17 152));
+  --gradient-cash: linear-gradient(180deg, oklch(0.8 0.17 65), oklch(0.66 0.19 45));
+  --gradient-felt: radial-gradient(ellipse at center, oklch(0.42 0.1 160), oklch(0.24 0.07 165));
   --border: oklch(0.92 0.02 236);
   --input: oklch(0.92 0.02 236);
   --ring: oklch(0.75 0.14 232);
@@ -122,6 +139,11 @@
 @utility bg-gradient-primary { background-image: var(--gradient-primary); }
 @utility bg-gradient-hero { background-image: var(--gradient-hero); }
 @utility bg-gradient-night { background-image: var(--gradient-night); }
+@utility bg-gradient-win { background-image: var(--gradient-win); }
+@utility bg-gradient-lose { background-image: var(--gradient-lose); }
+@utility bg-gradient-bet { background-image: var(--gradient-bet); }
+@utility bg-gradient-cash { background-image: var(--gradient-cash); }
+@utility bg-gradient-felt { background-image: var(--gradient-felt); }
 @utility shadow-card { box-shadow: var(--shadow-card); }
 @utility shadow-glow { box-shadow: var(--shadow-glow); }
 @utility no-scrollbar {
@@ -138,3 +160,15 @@
 .animate-pop { animation: pop-in 0.25s ease-out; }
 @keyframes rise { from { transform: translateY(8px); opacity: 0 } to { transform: none; opacity: 1 } }
 .animate-rise { animation: rise 0.3s ease-out both; }
+
+@keyframes coin-fall { 0% { transform: translateY(-20vh) rotate(0); opacity: 0 } 10% { opacity: 1 } 100% { transform: translateY(110vh) rotate(720deg); opacity: 0.8 } }
+.animate-coin-fall { animation: coin-fall 2.2s ease-in forwards; }
+@keyframes shake { 0%,100% { transform: translateX(0) } 20%,60% { transform: translateX(-6px) } 40%,80% { transform: translateX(6px) } }
+.animate-shake { animation: shake 0.45s ease-in-out; }
+@keyframes glow-pulse { 0%,100% { box-shadow: 0 0 0 0 oklch(0.8 0.15 80 / 0.6) } 50% { box-shadow: 0 0 24px 6px oklch(0.8 0.15 80 / 0.35) } }
+.animate-glow { animation: glow-pulse 1.2s ease-in-out infinite; }
+@keyframes card-flip { 0% { transform: rotateY(0) } 100% { transform: rotateY(180deg) } }
+@keyframes hop { 0% { transform: translateY(0) } 50% { transform: translateY(-14px) } 100% { transform: translateY(0) } }
+.animate-hop { animation: hop 0.35s ease-out; }
+@keyframes ray-spin { to { transform: rotate(360deg) } }
+.animate-rays { animation: ray-spin 18s linear infinite; }

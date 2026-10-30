@@ -161,6 +161,24 @@ export type Database = {
         }
         Relationships: []
       }
+      crash_cycle: {
+        Row: {
+          big_at: number
+          played: number
+          user_id: string
+        }
+        Insert: {
+          big_at?: number
+          played?: number
+          user_id: string
+        }
+        Update: {
+          big_at?: number
+          played?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       faqs: {
         Row: {
           answer_en: string
@@ -732,6 +750,7 @@ export type Database = {
     Functions: {
       _check_play: { Args: { _game: string; _stake: number }; Returns: string }
       _chicken_p: { Args: { _d: string }; Returns: number }
+      _crash_point: { Args: { _u: string }; Returns: number }
       _crash_settle: {
         Args: {
           _cash: number
