@@ -36,6 +36,13 @@
       "when": 1793256052736,
       "tag": "0004_fix_profile_trigger_storage",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793333660829,
+      "tag": "0005_crash_cycle_distribution",
+      "breakpoints": true
     }
   ]
 }
