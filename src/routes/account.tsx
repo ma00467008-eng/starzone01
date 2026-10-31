@@ -57,7 +57,7 @@ function AccountPage() {
           </div>
 
           {isAdmin && (
-            <Link to="/admin" className="flex items-center gap-3 rounded-2xl bg-night p-4 text-night-foreground shadow-card">
+            <Link to="/account" className="flex items-center gap-3 rounded-2xl bg-night p-4 text-night-foreground shadow-card">
               <Crown className="h-5 w-5 text-gold" /><span className="flex-1 font-semibold">{t("acc.admin")}</span><ChevronRight className="h-4 w-4 rtl:rotate-180" />
             </Link>
           )}

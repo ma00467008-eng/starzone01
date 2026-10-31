@@ -47,8 +47,8 @@ export function ChatThread({ userId, as }: { userId: string; as: "user" | "admin
     endRef.current?.scrollIntoView({ behavior: "smooth" });
     const unread = msgs?.filter((m) => m.sender !== as && !(as === "user" ? m.read_by_user : m.read_by_admin));
     if (unread?.length) {
-      const col = as === "user" ? "read_by_user" : "read_by_admin";
-      supabase.from("chat_messages").update({ [col]: true }).in("id", unread.map((m) => m.id)).then(() => {
+      
+      supabase.from("chat_messages").update(as === "user" ? { read_by_user: true } : { read_by_admin: true }).in("id", unread.map((m) => m.id)).then(() => {
         qc.invalidateQueries({ queryKey: ["chat-unread"] });
         qc.invalidateQueries({ queryKey: ["admin-convos"] });
       });
@@ -61,7 +61,7 @@ export function ChatThread({ userId, as }: { userId: string; as: "user" | "admin
     setBusy(true);
     const { data, error } = await supabase.from("chat_messages").insert({ user_id: userId, sender: as, body: body || null, image_path: image_path ?? null, read_by_user: as === "user", read_by_admin: as === "admin" }).select().single();
     setBusy(false);
-    if (error) return toast.error(errMsg(error));
+    if (error) { toast.error(errMsg(error)); return; }
     setText("");
     qc.setQueryData<Msg[]>(key, (old) => (old?.some((x) => x.id === data.id) ? old : [...(old ?? []), data as Msg]));
   };

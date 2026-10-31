@@ -23,7 +23,7 @@ export const Route = createFileRoute("/add-coins")({
 
 function AddCoins() {
   const { t, settings, session } = useApp();
-  const cfg = settings.coins ?? {};
+  const cfg = settings["coins"] ?? {};
   const min = Number(cfg.min ?? 300), max = Number(cfg.max ?? 10000);
   const amounts: number[] = cfg.amounts ?? [300, 500, 1000, 2000, 5000, 10000];
   const [amount, setAmount] = useState(amounts[0] ?? min);
@@ -35,11 +35,11 @@ function AddCoins() {
     queryFn: async () => (await supabase.from("coin_requests").select("*").order("created_at", { ascending: false }).limit(30)).data ?? [],
   });
   const submit = async () => {
-    if (amount < min || amount > max) return toast.error(`${fmt(min)} – ${fmt(max)}`);
+    if (amount < min || amount > max) { toast.error(`${fmt(min)} – ${fmt(max)}`); return; }
     setBusy(true);
     const { error } = await supabase.rpc("submit_coin_request", { _amount: amount, _note: note });
     setBusy(false);
-    if (error) return toast.error(errMsg(error));
+    if (error) { toast.error(errMsg(error)); return; }
     toast.success(t("coins.sent")); setNote("");
     qc.invalidateQueries({ queryKey: ["coin-reqs"] });
   };

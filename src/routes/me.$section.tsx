@@ -57,7 +57,7 @@ function Notifications() {
     if (rows.length) await supabase.from("notification_reads").upsert(rows);
     qc.invalidateQueries({ queryKey: ["notifs"] }); qc.invalidateQueries({ queryKey: ["notif-unread"] });
   };
-  useEffect(() => { if (data?.some((n) => !n.read)) { const id = setTimeout(markAll, 2500); return () => clearTimeout(id); } }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (data?.some((n) => !n.read)) { const id = setTimeout(markAll, 2500); return () => clearTimeout(id); } return undefined; }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
   if (isLoading) return <Spinner />;
   if (!data?.length) return <Empty />;
   return (
@@ -162,8 +162,8 @@ export function PasswordForm({ onDone }: { onDone?: () => void }) {
   const { t, profile } = useApp();
   const [cur, setCur] = useState(""); const [pw, setPw] = useState(""); const [pw2, setPw2] = useState(""); const [busy, setBusy] = useState(false);
   const save = async () => {
-    if (pw.length < 6) return toast.error("Password must be at least 6 characters");
-    if (pw !== pw2) return toast.error(t("auth.mismatch"));
+    if (pw.length < 6) { toast.error("Password must be at least 6 characters"); return; }
+    if (pw !== pw2) { toast.error(t("auth.mismatch")); return; }
     setBusy(true);
     try {
       const { error: e1 } = await supabase.auth.signInWithPassword({ email: phoneToEmail(profile!.phone), password: cur });
@@ -194,11 +194,11 @@ function Security() {
   useEffect(() => { if (profile) { setName(profile.username); setAv(profile.avatar); } }, [profile?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const save = async () => {
     const n = name.trim();
-    if (!/^[\p{L}\p{N}_ ]{3,20}$/u.test(n)) return toast.error("Username must be 3–20 letters or numbers");
+    if (!/^[\p{L}\p{N}_ ]{3,20}$/u.test(n)) { toast.error("Username must be 3–20 letters or numbers"); return; }
     setBusy(true);
     const { error } = await supabase.from("profiles").update({ username: n, avatar: av }).eq("id", profile!.id);
     setBusy(false);
-    if (error) return toast.error(errMsg(error));
+    if (error) { toast.error(errMsg(error)); return; }
     toast.success(t("common.saved")); refreshProfile();
   };
   return (
@@ -228,7 +228,7 @@ function Support() {
   const { data: faqs } = useQuery({ queryKey: ["faqs"], queryFn: async () => (await supabase.from("faqs").select("*").order("sort")).data ?? [] });
   const { data: tickets } = useQuery({ queryKey: ["tickets", session?.user.id], queryFn: async () => (await supabase.from("tickets").select("*, ticket_replies(*)").order("created_at", { ascending: false })).data ?? [] });
   const create = async () => {
-    if (subject.trim().length < 3 || desc.trim().length < 5) return toast.error("Please fill subject and description");
+    if (subject.trim().length < 3 || desc.trim().length < 5) { toast.error("Please fill subject and description"); return; }
     setBusy(true);
     try {
       const image_path = file ? await uploadFile(session!.user.id, file) : null;
@@ -282,7 +282,7 @@ export function TicketThread({ ticket, as = "user" }: { ticket: { id: string; de
     const { error } = await supabase.from("ticket_replies").insert({ ticket_id: ticket.id, sender: as, body: body.trim().slice(0, 2000) });
     if (!error && as === "admin" && ticket.status === "pending") await supabase.from("tickets").update({ status: "open", updated_at: new Date().toISOString() }).eq("id", ticket.id);
     setBusy(false);
-    if (error) return toast.error(errMsg(error));
+    if (error) { toast.error(errMsg(error)); return; }
     setBody(""); qc.invalidateQueries({ queryKey: ["tickets"] }); qc.invalidateQueries({ queryKey: ["admin-tickets"] });
   };
   const replies = [...(ticket.ticket_replies ?? [])].sort((a, b) => a.id - b.id);
@@ -307,7 +307,7 @@ function GiftPage() {
     setBusy(true);
     const { data, error } = await supabase.rpc("redeem_gift", { _code: c.trim() });
     setBusy(false);
-    if (error) return toast.error(errMsg(error));
+    if (error) { toast.error(errMsg(error)); return; }
     const r = data as { reward: number; balance: number };
     setBalance(r.balance); toast.success(`${t("gift.done")} +${fmt(r.reward)}`); setCode("");
     qc.invalidateQueries({ queryKey: ["tx"] });

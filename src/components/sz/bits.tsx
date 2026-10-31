@@ -40,7 +40,7 @@ export function Balance({ className }: { className?: string }) {
 }
 
 const HUES = [230, 210, 255, 195, 245, 220, 265, 200];
-export function Avatar({ n, name, className }: { n?: number; name?: string; className?: string }) {
+export function Avatar({ n, name, className }: { n?: number | undefined; name?: string | undefined; className?: string }) {
   return (
     <span className={cn("grid place-items-center rounded-full font-display font-bold text-primary-foreground", className)} style={{ background: `linear-gradient(135deg, oklch(0.8 0.12 ${HUES[((n ?? 1) - 1) % 8]}), oklch(0.5 0.15 ${(HUES[((n ?? 1) - 1) % 8] ?? 230) + 15}))` }}>
       {(name || "S").slice(0, 1).toUpperCase()}
