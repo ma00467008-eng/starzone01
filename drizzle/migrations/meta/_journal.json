@@ -43,6 +43,13 @@
       "when": 1793333660829,
       "tag": "0005_crash_cycle_distribution",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793446926042,
+      "tag": "0006_lock_profile_columns",
+      "breakpoints": true
     }
   ]
 }

@@ -11,10 +11,12 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AccountRouteImport } from './routes/account'
+import { Route as AddCoinsRouteImport } from './routes/add-coins'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as ChatRouteImport } from './routes/chat'
 import { Route as PromoRouteImport } from './routes/promo'
 import { Route as GameSlugRouteImport } from './routes/game.$slug'
+import { Route as MeSectionRouteImport } from './routes/me.$section'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -24,6 +26,11 @@ const IndexRoute = IndexRouteImport.update({
 const AccountRoute = AccountRouteImport.update({
   id: '/account',
   path: '/account',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AddCoinsRoute = AddCoinsRouteImport.update({
+  id: '/add-coins',
+  path: '/add-coins',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -46,48 +53,85 @@ const GameSlugRoute = GameSlugRouteImport.update({
   path: '/game/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MeSectionRoute = MeSectionRouteImport.update({
+  id: '/me/$section',
+  path: '/me/$section',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/account': typeof AccountRoute
+  '/add-coins': typeof AddCoinsRoute
   '/auth': typeof AuthRoute
   '/chat': typeof ChatRoute
   '/promo': typeof PromoRoute
   '/game/$slug': typeof GameSlugRoute
+  '/me/$section': typeof MeSectionRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/account': typeof AccountRoute
+  '/add-coins': typeof AddCoinsRoute
   '/auth': typeof AuthRoute
   '/chat': typeof ChatRoute
   '/promo': typeof PromoRoute
   '/game/$slug': typeof GameSlugRoute
+  '/me/$section': typeof MeSectionRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/account': typeof AccountRoute
+  '/add-coins': typeof AddCoinsRoute
   '/auth': typeof AuthRoute
   '/chat': typeof ChatRoute
   '/promo': typeof PromoRoute
   '/game/$slug': typeof GameSlugRoute
+  '/me/$section': typeof MeSectionRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/account' | '/auth' | '/chat' | '/promo' | '/game/$slug'
+  fullPaths:
+    | '/'
+    | '/account'
+    | '/add-coins'
+    | '/auth'
+    | '/chat'
+    | '/promo'
+    | '/game/$slug'
+    | '/me/$section'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/account' | '/auth' | '/chat' | '/promo' | '/game/$slug'
+  to:
+    | '/'
+    | '/account'
+    | '/add-coins'
+    | '/auth'
+    | '/chat'
+    | '/promo'
+    | '/game/$slug'
+    | '/me/$section'
   id:
-    '__root__' | '/' | '/account' | '/auth' | '/chat' | '/promo' | '/game/$slug'
+    | '__root__'
+    | '/'
+    | '/account'
+    | '/add-coins'
+    | '/auth'
+    | '/chat'
+    | '/promo'
+    | '/game/$slug'
+    | '/me/$section'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AccountRoute: typeof AccountRoute
+  AddCoinsRoute: typeof AddCoinsRoute
   AuthRoute: typeof AuthRoute
   ChatRoute: typeof ChatRoute
   PromoRoute: typeof PromoRoute
   GameSlugRoute: typeof GameSlugRoute
+  MeSectionRoute: typeof MeSectionRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -104,6 +148,13 @@ declare module '@tanstack/react-router' {
       path: '/account'
       fullPath: '/account'
       preLoaderRoute: typeof AccountRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/add-coins': {
+      id: '/add-coins'
+      path: '/add-coins'
+      fullPath: '/add-coins'
+      preLoaderRoute: typeof AddCoinsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -134,16 +185,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GameSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/me/$section': {
+      id: '/me/$section'
+      path: '/me/$section'
+      fullPath: '/me/$section'
+      preLoaderRoute: typeof MeSectionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AccountRoute: AccountRoute,
+  AddCoinsRoute: AddCoinsRoute,
   AuthRoute: AuthRoute,
   ChatRoute: ChatRoute,
   PromoRoute: PromoRoute,
   GameSlugRoute: GameSlugRoute,
+  MeSectionRoute: MeSectionRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
