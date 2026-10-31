@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AccountRouteImport } from './routes/account'
+import { Route as AddCoinsRouteImport } from './routes/add-coins'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as ChatRouteImport } from './routes/chat'
 import { Route as PromoRouteImport } from './routes/promo'
@@ -24,6 +25,11 @@ const IndexRoute = IndexRouteImport.update({
 const AccountRoute = AccountRouteImport.update({
   id: '/account',
   path: '/account',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AddCoinsRoute = AddCoinsRouteImport.update({
+  id: '/add-coins',
+  path: '/add-coins',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -50,6 +56,7 @@ const GameSlugRoute = GameSlugRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/account': typeof AccountRoute
+  '/add-coins': typeof AddCoinsRoute
   '/auth': typeof AuthRoute
   '/chat': typeof ChatRoute
   '/promo': typeof PromoRoute
@@ -58,6 +65,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/account': typeof AccountRoute
+  '/add-coins': typeof AddCoinsRoute
   '/auth': typeof AuthRoute
   '/chat': typeof ChatRoute
   '/promo': typeof PromoRoute
@@ -67,6 +75,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/account': typeof AccountRoute
+  '/add-coins': typeof AddCoinsRoute
   '/auth': typeof AuthRoute
   '/chat': typeof ChatRoute
   '/promo': typeof PromoRoute
@@ -74,16 +83,38 @@ export interface FileRoutesById {
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/account' | '/auth' | '/chat' | '/promo' | '/game/$slug'
+  fullPaths:
+    | '/'
+    | '/account'
+    | '/add-coins'
+    | '/auth'
+    | '/chat'
+    | '/promo'
+    | '/game/$slug'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/account' | '/auth' | '/chat' | '/promo' | '/game/$slug'
+  to:
+    | '/'
+    | '/account'
+    | '/add-coins'
+    | '/auth'
+    | '/chat'
+    | '/promo'
+    | '/game/$slug'
   id:
-    '__root__' | '/' | '/account' | '/auth' | '/chat' | '/promo' | '/game/$slug'
+    | '__root__'
+    | '/'
+    | '/account'
+    | '/add-coins'
+    | '/auth'
+    | '/chat'
+    | '/promo'
+    | '/game/$slug'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AccountRoute: typeof AccountRoute
+  AddCoinsRoute: typeof AddCoinsRoute
   AuthRoute: typeof AuthRoute
   ChatRoute: typeof ChatRoute
   PromoRoute: typeof PromoRoute
@@ -104,6 +135,13 @@ declare module '@tanstack/react-router' {
       path: '/account'
       fullPath: '/account'
       preLoaderRoute: typeof AccountRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/add-coins': {
+      id: '/add-coins'
+      path: '/add-coins'
+      fullPath: '/add-coins'
+      preLoaderRoute: typeof AddCoinsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -140,6 +178,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AccountRoute: AccountRoute,
+  AddCoinsRoute: AddCoinsRoute,
   AuthRoute: AuthRoute,
   ChatRoute: ChatRoute,
   PromoRoute: PromoRoute,
