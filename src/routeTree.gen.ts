@@ -16,6 +16,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as ChatRouteImport } from './routes/chat'
 import { Route as PromoRouteImport } from './routes/promo'
 import { Route as GameSlugRouteImport } from './routes/game.$slug'
+import { Route as MeSectionRouteImport } from './routes/me.$section'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -52,6 +53,11 @@ const GameSlugRoute = GameSlugRouteImport.update({
   path: '/game/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MeSectionRoute = MeSectionRouteImport.update({
+  id: '/me/$section',
+  path: '/me/$section',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -61,6 +67,7 @@ export interface FileRoutesByFullPath {
   '/chat': typeof ChatRoute
   '/promo': typeof PromoRoute
   '/game/$slug': typeof GameSlugRoute
+  '/me/$section': typeof MeSectionRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -70,6 +77,7 @@ export interface FileRoutesByTo {
   '/chat': typeof ChatRoute
   '/promo': typeof PromoRoute
   '/game/$slug': typeof GameSlugRoute
+  '/me/$section': typeof MeSectionRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -80,6 +88,7 @@ export interface FileRoutesById {
   '/chat': typeof ChatRoute
   '/promo': typeof PromoRoute
   '/game/$slug': typeof GameSlugRoute
+  '/me/$section': typeof MeSectionRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -91,6 +100,7 @@ export interface FileRouteTypes {
     | '/chat'
     | '/promo'
     | '/game/$slug'
+    | '/me/$section'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -100,6 +110,7 @@ export interface FileRouteTypes {
     | '/chat'
     | '/promo'
     | '/game/$slug'
+    | '/me/$section'
   id:
     | '__root__'
     | '/'
@@ -109,6 +120,7 @@ export interface FileRouteTypes {
     | '/chat'
     | '/promo'
     | '/game/$slug'
+    | '/me/$section'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -119,6 +131,7 @@ export interface RootRouteChildren {
   ChatRoute: typeof ChatRoute
   PromoRoute: typeof PromoRoute
   GameSlugRoute: typeof GameSlugRoute
+  MeSectionRoute: typeof MeSectionRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -172,6 +185,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GameSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/me/$section': {
+      id: '/me/$section'
+      path: '/me/$section'
+      fullPath: '/me/$section'
+      preLoaderRoute: typeof MeSectionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -183,6 +203,7 @@ const rootRouteChildren: RootRouteChildren = {
   ChatRoute: ChatRoute,
   PromoRoute: PromoRoute,
   GameSlugRoute: GameSlugRoute,
+  MeSectionRoute: MeSectionRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
