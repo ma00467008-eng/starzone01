@@ -38,6 +38,33 @@ export type Database = {
         }
         Relationships: []
       }
+      auto_messages: {
+        Row: {
+          body: string | null
+          created_at: string
+          enabled: boolean
+          id: string
+          image_url: string | null
+          sort: number
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          image_url?: string | null
+          sort?: number
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          image_url?: string | null
+          sort?: number
+        }
+        Relationships: []
+      }
       captcha_challenges: {
         Row: {
           attempts: number
@@ -77,6 +104,7 @@ export type Database = {
           created_at: string
           id: string
           image_path: string | null
+          image_url: string | null
           read_by_admin: boolean
           read_by_user: boolean
           sender: string
@@ -87,6 +115,7 @@ export type Database = {
           created_at?: string
           id?: string
           image_path?: string | null
+          image_url?: string | null
           read_by_admin?: boolean
           read_by_user?: boolean
           sender: string
@@ -97,6 +126,7 @@ export type Database = {
           created_at?: string
           id?: string
           image_path?: string | null
+          image_url?: string | null
           read_by_admin?: boolean
           read_by_user?: boolean
           sender?: string
