@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Loader2, Minus, Plus, X } from "lucide-react";
+import { Frown, Loader2, Minus, Plus, Trophy, X } from "lucide-react";
 import { useApp } from "@/lib/app-context";
 import { beep, fmt } from "@/lib/sound";
 import { cn } from "@/lib/utils";
@@ -88,7 +88,7 @@ export function ResultPopup({ outcome, onClose }: { outcome: Outcome | null; onC
         {w && <div className="animate-rays pointer-events-none absolute -inset-20 opacity-25" style={{ background: "repeating-conic-gradient(var(--card) 0 10deg, transparent 10deg 20deg)" }} />}
         <button onClick={onClose} className="absolute right-3 top-3 z-10 grid h-7 w-7 place-items-center rounded-full bg-night/20" aria-label="Close"><X className="h-4 w-4" /></button>
         <div className="relative px-6 pb-6 pt-8">
-          <div className="mx-auto mb-3 grid h-20 w-20 place-items-center rounded-full bg-card/30 text-5xl">{w ? "🏆" : "😔"}</div>
+          <div className={cn("mx-auto -mt-2 mb-3 grid h-20 w-20 place-items-center rounded-full border-4 shadow-glow", w ? "border-card/70 bg-gradient-to-b from-card/60 to-card/10" : "border-night-foreground/30 bg-night/30")}>{w ? <Trophy className="h-10 w-10" /> : <Frown className="h-10 w-10" />}</div>
           <div className="font-display text-2xl font-black uppercase tracking-wide">{outcome.title ?? (w ? t("game.congrats") : t("game.sorry"))}</div>
           {outcome.detail && <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5 text-xs font-bold">{outcome.detail}</div>}
           <div className="mt-4 rounded-2xl bg-card/90 px-4 py-3 text-foreground">
