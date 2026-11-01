@@ -102,7 +102,7 @@ export function WingoGame({ game }: { game: GameRow }) {
 
   const closed = remain <= 5;
   const mm = String(Math.floor(remain / 60)).padStart(2, "0"), ss = String(remain % 60).padStart(2, "0");
-  const selTone = sel ? (sel.kind === "number" ? colorBg[numColors(Number(sel.value))[0]!] : colorBg[sel.value]) : "";
+  const selTone: string = (sel ? (sel.kind === "number" ? colorBg[numColors(Number(sel.value))[0]!] : colorBg[sel.value]) : "") ?? "";
   const open = (s: Sel) => { if (closed) return; beep("click"); setSel(s); };
 
   return (

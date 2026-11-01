@@ -63,7 +63,7 @@ export function ActionButton({ children, onClick, disabled, loading, tone = "bet
   );
 }
 
-export type Outcome = { win: boolean; amount: number; stake?: number; multiplier?: number | null; round?: string; detail?: ReactNode; title?: string };
+export type Outcome = { win: boolean; amount: number; stake?: number | undefined; multiplier?: number | null | undefined; round?: string | undefined; detail?: ReactNode | undefined; title?: string | undefined };
 
 /** Full-screen win / loss popup (auto closes after 3 s). */
 export function ResultPopup({ outcome, onClose }: { outcome: Outcome | null; onClose: () => void }) {
