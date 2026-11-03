@@ -20,7 +20,7 @@ export const Route = createFileRoute("/auth")({
       { property: "og:description", content: "Create your free STAR ZONE account." },
     ],
   }),
-  validateSearch: (s: Record<string, unknown>): { ref?: string } => (typeof s.ref === "string" && s.ref ? { ref: s.ref } : {}),
+  validateSearch: (s: Record<string, unknown>): { ref?: string } => (typeof s["ref"] === "string" && s["ref"] ? { ref: s["ref"] } : {}),
   component: AuthPage,
 });
 
