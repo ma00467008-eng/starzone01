@@ -66,7 +66,7 @@ function randomRecovery() {
 }
 
 export const registerUser = createServerFn({ method: "POST" })
-  .inputValidator((d: { phone: string; password: string; captchaId: string }) => d)
+  .inputValidator((d: { phone: string; password: string; captchaId: string; ref?: string }) => d)
   .handler(async ({ data }) => {
     const phone = normPhone(data.phone);
     checkPassword(data.password);
@@ -81,7 +81,7 @@ export const registerUser = createServerFn({ method: "POST" })
       email: phoneToEmail(phone),
       password: data.password,
       email_confirm: true,
-      app_metadata: { starzone: "true", phone },
+      app_metadata: { starzone: "true", phone, ref: (data.ref ?? "").trim().toUpperCase().slice(0, 16) },
     });
     if (error || !created.user) throw new Error(error?.message?.includes("already") ? "This phone number is already registered" : "Registration failed");
     const recovery = randomRecovery();

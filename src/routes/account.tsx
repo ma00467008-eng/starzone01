@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { Bell, ChevronRight, Gamepad2, BarChart3, Shield, LifeBuoy, Gift, Languages, Settings, Receipt, LogOut, Crown, Copy, PlusCircle } from "lucide-react";
+import { Bell, ChevronRight, Gamepad2, BarChart3, Shield, LifeBuoy, Gift, Languages, Settings, Receipt, LogOut, Crown, Copy, PlusCircle, Users } from "lucide-react";
 import { toast } from "sonner";
 import { signOut, useApp } from "@/lib/app-context";
 import { AppShell, RequireLogin } from "@/components/sz/shell";
@@ -57,10 +57,15 @@ function AccountPage() {
           </div>
 
           {isAdmin && (
-            <Link to="/account" className="flex items-center gap-3 rounded-2xl bg-night p-4 text-night-foreground shadow-card">
+            <Link to="/admin" className="flex items-center gap-3 rounded-2xl bg-night p-4 text-night-foreground shadow-card">
               <Crown className="h-5 w-5 text-gold" /><span className="flex-1 font-semibold">{t("acc.admin")}</span><ChevronRight className="h-4 w-4 rtl:rotate-180" />
             </Link>
           )}
+
+          <Link to="/earn" className="flex items-center gap-3 rounded-2xl bg-gradient-primary p-4 text-primary-foreground shadow-glow">
+            <span className="grid h-10 w-10 place-items-center rounded-xl bg-primary-foreground/20"><Users className="h-5 w-5" /></span>
+            <span className="flex-1 font-display font-bold">{t("acc.earn")}</span><ChevronRight className="h-4 w-4 rtl:rotate-180" />
+          </Link>
 
           <div className="divide-y divide-border overflow-hidden rounded-2xl bg-card shadow-card">
             {MENU.map(({ s, icon: Icon, k }) => (

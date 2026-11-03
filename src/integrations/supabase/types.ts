@@ -550,11 +550,14 @@ export type Database = {
         Row: {
           avatar: number
           balance: number
+          commission_claimed: number
           created_at: string
           id: string
           last_seen: string
           must_change_password: boolean
           phone: string
+          referral_code: string | null
+          referrer_id: string | null
           status: string
           uid: string
           username: string
@@ -562,11 +565,14 @@ export type Database = {
         Insert: {
           avatar?: number
           balance?: number
+          commission_claimed?: number
           created_at?: string
           id: string
           last_seen?: string
           must_change_password?: boolean
           phone: string
+          referral_code?: string | null
+          referrer_id?: string | null
           status?: string
           uid: string
           username: string
@@ -574,11 +580,14 @@ export type Database = {
         Update: {
           avatar?: number
           balance?: number
+          commission_claimed?: number
           created_at?: string
           id?: string
           last_seen?: string
           must_change_password?: boolean
           phone?: string
+          referral_code?: string | null
+          referrer_id?: string | null
           status?: string
           uid?: string
           username?: string
@@ -801,6 +810,15 @@ export type Database = {
         Returns: number
       }
       _mines_mult: { Args: { _k: number; _m: number }; Returns: number }
+      _ref_commission: { Args: { _since: string; _u: string }; Returns: number }
+      _ref_rates: { Args: never; Returns: number[] }
+      _ref_tree: {
+        Args: { _u: string }
+        Returns: {
+          id: string
+          lvl: number
+        }[]
+      }
       _round_code: { Args: { _game: string }; Returns: string }
       _wingo_mult: {
         Args: { _kind: string; _n: number; _value: string }
@@ -836,6 +854,7 @@ export type Database = {
           username: string
         }[]
       }
+      admin_referrals: { Args: { _user: string }; Returns: Json }
       admin_review_coin: {
         Args: { _approve: boolean; _id: string; _note: string }
         Returns: Json
@@ -851,6 +870,7 @@ export type Database = {
         Returns: Json
       }
       chicken_step: { Args: { _session: string }; Returns: Json }
+      claim_commission: { Args: never; Returns: Json }
       clear_must_change: { Args: never; Returns: undefined }
       crash_check: {
         Args: { _cashout: boolean; _session: string }
@@ -868,6 +888,7 @@ export type Database = {
       mines_cashout: { Args: { _session: string }; Returns: Json }
       mines_reveal: { Args: { _session: string; _tile: number }; Returns: Json }
       mines_start: { Args: { _mines: number; _stake: number }; Returns: Json }
+      my_earn: { Args: never; Returns: Json }
       notify: {
         Args: { _body: string; _kind: string; _title: string; _user: string }
         Returns: undefined

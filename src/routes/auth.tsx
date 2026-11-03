@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { Eye, EyeOff, Loader2, Phone, Lock, Copy } from "lucide-react";
+import { Eye, EyeOff, Loader2, Phone, Lock, Copy, Gift } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { loginUser, registerUser, recoverPassword } from "@/lib/auth.functions";
@@ -20,6 +20,7 @@ export const Route = createFileRoute("/auth")({
       { property: "og:description", content: "Create your free STAR ZONE account." },
     ],
   }),
+  validateSearch: (s: Record<string, unknown>): { ref?: string } => (typeof s["ref"] === "string" && s["ref"] ? { ref: s["ref"] } : {}),
   component: AuthPage,
 });
 
@@ -39,7 +40,9 @@ function Field({ icon: Icon, type = "text", value, onChange, placeholder, toggle
 function AuthPage() {
   const { t, settings } = useApp();
   const navigate = useNavigate();
-  const [mode, setMode] = useState<Mode>("login");
+  const search = Route.useSearch();
+  const [mode, setMode] = useState<Mode>(search.ref ? "register" : "login");
+  const [ref, setRef] = useState(search.ref ?? "");
   const [phone, setPhone] = useState("");
   const [pw, setPw] = useState("");
   const [pw2, setPw2] = useState("");
@@ -69,7 +72,7 @@ function AuthPage() {
         sessionStorage.setItem("sz_popups", "pending");
         navigate({ to: "/", replace: true });
       } else if (mode === "register") {
-        const r = await register({ data: { phone, password: pw, captchaId } });
+        const r = await register({ data: { phone, password: pw, captchaId, ref } });
         if (r.access_token) await supabase.auth.setSession({ access_token: r.access_token, refresh_token: r.refresh_token ?? "" });
         sessionStorage.setItem("sz_popups", "pending");
         setRecovery(r.recovery);
@@ -109,6 +112,7 @@ function AuthPage() {
               {mode === "recover" && <Field icon={Lock} value={code} onChange={setCode} placeholder={t("auth.recovery_code")} />}
               <Field icon={Lock} toggle value={pw} onChange={setPw} placeholder={mode === "recover" ? t("auth.new_password") : t("auth.password")} />
               {mode !== "login" && <Field icon={Lock} toggle value={pw2} onChange={setPw2} placeholder={t("auth.confirm")} />}
+              {mode === "register" && <Field icon={Gift} value={ref} onChange={setRef} placeholder={t("earn.invite_code_opt")} />}
               <Button type="submit" disabled={busy} className="h-12 w-full rounded-xl bg-gradient-primary text-base font-semibold shadow-glow">
                 {busy && <Loader2 className="h-4 w-4 animate-spin" />}
                 {mode === "login" ? t("auth.login") : mode === "register" ? t("auth.register") : t("auth.recover")}

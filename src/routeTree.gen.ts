@@ -15,6 +15,7 @@ import { Route as AddCoinsRouteImport } from './routes/add-coins'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as ChatRouteImport } from './routes/chat'
+import { Route as EarnRouteImport } from './routes/earn'
 import { Route as PromoRouteImport } from './routes/promo'
 import { Route as GameSlugRouteImport } from './routes/game.$slug'
 import { Route as MeSectionRouteImport } from './routes/me.$section'
@@ -49,6 +50,11 @@ const ChatRoute = ChatRouteImport.update({
   path: '/chat',
   getParentRoute: () => rootRouteImport,
 } as any)
+const EarnRoute = EarnRouteImport.update({
+  id: '/earn',
+  path: '/earn',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PromoRoute = PromoRouteImport.update({
   id: '/promo',
   path: '/promo',
@@ -72,6 +78,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
   '/chat': typeof ChatRoute
+  '/earn': typeof EarnRoute
   '/promo': typeof PromoRoute
   '/game/$slug': typeof GameSlugRoute
   '/me/$section': typeof MeSectionRoute
@@ -83,6 +90,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
   '/chat': typeof ChatRoute
+  '/earn': typeof EarnRoute
   '/promo': typeof PromoRoute
   '/game/$slug': typeof GameSlugRoute
   '/me/$section': typeof MeSectionRoute
@@ -95,6 +103,7 @@ export interface FileRoutesById {
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
   '/chat': typeof ChatRoute
+  '/earn': typeof EarnRoute
   '/promo': typeof PromoRoute
   '/game/$slug': typeof GameSlugRoute
   '/me/$section': typeof MeSectionRoute
@@ -108,6 +117,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/auth'
     | '/chat'
+    | '/earn'
     | '/promo'
     | '/game/$slug'
     | '/me/$section'
@@ -119,6 +129,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/auth'
     | '/chat'
+    | '/earn'
     | '/promo'
     | '/game/$slug'
     | '/me/$section'
@@ -130,6 +141,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/auth'
     | '/chat'
+    | '/earn'
     | '/promo'
     | '/game/$slug'
     | '/me/$section'
@@ -142,6 +154,7 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRoute
   AuthRoute: typeof AuthRoute
   ChatRoute: typeof ChatRoute
+  EarnRoute: typeof EarnRoute
   PromoRoute: typeof PromoRoute
   GameSlugRoute: typeof GameSlugRoute
   MeSectionRoute: typeof MeSectionRoute
@@ -191,6 +204,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/earn': {
+      id: '/earn'
+      path: '/earn'
+      fullPath: '/earn'
+      preLoaderRoute: typeof EarnRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/promo': {
       id: '/promo'
       path: '/promo'
@@ -222,6 +242,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRoute,
   AuthRoute: AuthRoute,
   ChatRoute: ChatRoute,
+  EarnRoute: EarnRoute,
   PromoRoute: PromoRoute,
   GameSlugRoute: GameSlugRoute,
   MeSectionRoute: MeSectionRoute,
