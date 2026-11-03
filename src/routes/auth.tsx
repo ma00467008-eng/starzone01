@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { Eye, EyeOff, Loader2, Phone, Lock, Copy } from "lucide-react";
+import { Eye, EyeOff, Loader2, Phone, Lock, Copy, Gift } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { loginUser, registerUser, recoverPassword } from "@/lib/auth.functions";

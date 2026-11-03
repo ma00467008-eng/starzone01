@@ -19,6 +19,7 @@ export const Route = createFileRoute("/account")({
 });
 
 const MENU = [
+  { s: "earn", icon: Users, k: "acc.earn" },
   { s: "notifications", icon: Bell, k: "acc.notifications" },
   { s: "history", icon: Gamepad2, k: "acc.history" },
   { s: "stats", icon: BarChart3, k: "acc.stats" },
