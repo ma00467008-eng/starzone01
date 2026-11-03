@@ -66,7 +66,7 @@ function randomRecovery() {
 }
 
 export const registerUser = createServerFn({ method: "POST" })
-  .inputValidator((d: { phone: string; password: string; captchaId: string }) => d)
+  .inputValidator((d: { phone: string; password: string; captchaId: string; ref?: string }) => d)
   .handler(async ({ data }) => {
     const phone = normPhone(data.phone);
     checkPassword(data.password);
