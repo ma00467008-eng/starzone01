@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { Bell, ChevronRight, Gamepad2, BarChart3, Shield, LifeBuoy, Gift, Languages, Settings, Receipt, LogOut, Crown, Copy, PlusCircle, Users } from "lucide-react";
+import { Bell, ChevronRight, Gamepad2, BarChart3, Shield, LifeBuoy, Gift, Languages, Settings, Receipt, LogOut, Crown, Copy, PlusCircle, MinusCircle, Users } from "lucide-react";
 import { toast } from "sonner";
 import { signOut, useApp } from "@/lib/app-context";
 import { AppShell, RequireLogin } from "@/components/sz/shell";
