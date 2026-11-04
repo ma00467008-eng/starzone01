@@ -261,6 +261,7 @@ export function CoinsMod() {
           </ul>
         )}
       </Panel>
+      <DeductionsPanel />
       <Panel title="Add Coins page settings">
         <div className="grid gap-3 md:grid-cols-3">
           <Field label="Minimum"><input type="number" value={d.min ?? 300} onChange={(e) => set({ min: Number(e.target.value) })} className={inputCls} /></Field>
