@@ -116,7 +116,7 @@ function EarnBody() {
         </div>
         <div className="border-t border-border">
           <div className="grid grid-cols-4 bg-secondary/60 px-3 py-2 text-[11px] font-semibold text-muted-foreground">
-            <span>UID</span><span className="text-right">{t("earn.deposit_amount")}</span><span className="text-right">{t("earn.bet_amount")}</span><span className="text-right">{t("earn.joined")}</span>
+            <span>{t("earn.uid")}</span><span className="text-right">{t("earn.deposit_amount")}</span><span className="text-right">{t("earn.bet_amount")}</span><span className="text-right">{t("earn.joined")}</span>
           </div>
           {!cur.users.length ? <p className="py-8 text-center text-xs text-muted-foreground">{t("common.empty")}</p> : (
             <ul className="max-h-96 divide-y divide-border overflow-y-auto text-xs">

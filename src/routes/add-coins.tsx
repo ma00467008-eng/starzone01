@@ -39,16 +39,16 @@ function AddCoins() {
     queryFn: async () => (await supabase.from(table).select("*").order("created_at", { ascending: false }).limit(30)).data ?? [],
   });
   const submit = async () => {
-    if (!amount || amount < 1) { toast.error("Enter a valid amount"); return; }
+    if (!amount || amount < 1) { toast.error(t("coins.invalid_amount")); return; }
     if (mode === "add" && (amount < min || amount > max)) { toast.error(`${fmt(min)} – ${fmt(max)}`); return; }
-    if (note.trim().length < 3) { toast.error("Instructions are required"); return; }
+    if (note.trim().length < 3) { toast.error(t("coins.instructions_required")); return; }
     setBusy(true);
     const { error } = mode === "add"
       ? await supabase.rpc("submit_coin_request", { _amount: amount, _note: note })
       : await supabase.rpc("submit_coin_deduction", { _amount: amount, _note: note });
     setBusy(false);
     if (error) { toast.error(errMsg(error)); return; }
-    toast.success(mode === "add" ? t("coins.sent") : "Deduction request sent"); setNote("");
+    toast.success(mode === "add" ? t("coins.sent") : t("coins.deduct_sent")); setNote("");
     qc.invalidateQueries({ queryKey: ["coin-reqs"] });
   };
   return (
@@ -58,7 +58,7 @@ function AddCoins() {
           <div className="grid grid-cols-2 gap-1 rounded-xl bg-secondary p-1">
             {(["add", "deduct"] as const).map((m) => (
               <button key={m} onClick={() => setMode(m)} className={cn("rounded-lg py-2.5 font-display text-sm font-bold transition", mode === m ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground")}>
-                {m === "add" ? "Add Coins" : "Coin Deduction"}
+                {m === "add" ? t("coins.tab_add") : t("coins.tab_deduct")}
               </button>
             ))}
           </div>
@@ -69,7 +69,7 @@ function AddCoins() {
             </Card>
           )}
           <Card className="space-y-4">
-            <h2 className="font-display font-bold">{mode === "add" ? t("coins.choose") : "Amount to deduct"}</h2>
+            <h2 className="font-display font-bold">{mode === "add" ? t("coins.choose") : t("coins.deduct_amount")}</h2>
             {mode === "add" && (
               <div className="grid grid-cols-3 gap-2">
                 {amounts.map((a) => (
@@ -77,16 +77,16 @@ function AddCoins() {
                 ))}
               </div>
             )}
-            <label className="block text-xs text-muted-foreground">{mode === "add" ? `${t("coins.custom")} (${fmt(min)} – ${fmt(max)})` : `Amount${profile?.balance != null ? ` (balance ${fmt(profile.balance)})` : ""}`}
+            <label className="block text-xs text-muted-foreground">{mode === "add" ? `${t("coins.custom")} (${fmt(min)} – ${fmt(max)})` : `${t("coins.amount")}${profile?.balance != null ? ` (${t("coins.balance_label")} ${fmt(profile.balance)})` : ""}`}
               <input type="number" value={amount} min={1} onChange={(e) => setAmount(Number(e.target.value))} className="mt-1 h-11 w-full rounded-xl border border-input bg-background px-3 text-base font-bold text-foreground outline-none focus:border-primary" />
             </label>
-            <label className="block text-xs text-muted-foreground">Instructions <span className="text-destructive">*</span>
-              <textarea value={note} required maxLength={300} onChange={(e) => setNote(e.target.value)} rows={3} placeholder="Write your instructions (required)" className="mt-1 w-full rounded-xl border border-input bg-background p-3 text-sm text-foreground outline-none focus:border-primary" />
+            <label className="block text-xs text-muted-foreground">{t("coins.instructions")} <span className="text-destructive">*</span>
+              <textarea value={note} required maxLength={300} onChange={(e) => setNote(e.target.value)} rows={3} placeholder={t("coins.instructions_ph")} className="mt-1 w-full rounded-xl border border-input bg-background p-3 text-sm text-foreground outline-none focus:border-primary" />
             </label>
-            <PrimaryButton onClick={submit} loading={busy}>{mode === "add" ? t("coins.request") : "Request deduction"} · {fmt(amount || 0)}</PrimaryButton>
+            <PrimaryButton onClick={submit} loading={busy}>{mode === "add" ? t("coins.request") : t("coins.request_deduct")} · {fmt(amount || 0)}</PrimaryButton>
           </Card>
           <Card>
-            <h2 className="mb-2 font-display font-bold">{mode === "add" ? t("coins.my_requests") : "My deduction requests"}</h2>
+            <h2 className="mb-2 font-display font-bold">{mode === "add" ? t("coins.my_requests") : t("coins.my_deductions")}</h2>
             {!reqs?.length ? <Empty /> : (
               <ul className="divide-y divide-border text-sm">
                 {reqs.map((r) => (
