@@ -18,6 +18,7 @@ export const Route = createFileRoute("/add-coins")({
     { property: "og:type", content: "website" },
     { name: "twitter:card", content: "summary" },
   ] }),
+  validateSearch: (s: Record<string, unknown>): { mode: "add" | "deduct" } => ({ mode: s["mode"] === "deduct" ? "deduct" : "add" }),
   component: AddCoins,
 });
 
@@ -26,7 +27,8 @@ function AddCoins() {
   const cfg = settings["coins"] ?? {};
   const min = Number(cfg.min ?? 300), max = Number(cfg.max ?? 10000);
   const amounts: number[] = cfg.amounts ?? [300, 500, 1000, 2000, 5000, 10000];
-  const [mode, setMode] = useState<"add" | "deduct">("add");
+  const { mode: initialMode } = Route.useSearch();
+  const [mode, setMode] = useState<"add" | "deduct">(initialMode);
   const [amount, setAmount] = useState(amounts[0] ?? min);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
