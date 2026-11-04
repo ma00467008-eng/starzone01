@@ -18,7 +18,7 @@ export const Route = createFileRoute("/add-coins")({
     { property: "og:type", content: "website" },
     { name: "twitter:card", content: "summary" },
   ] }),
-  validateSearch: (s: Record<string, unknown>): { mode: "add" | "deduct" } => ({ mode: s.mode === "deduct" ? "deduct" : "add" }),
+  validateSearch: (s: Record<string, unknown>): { mode: "add" | "deduct" } => ({ mode: s["mode"] === "deduct" ? "deduct" : "add" }),
   component: AddCoins,
 });
 
