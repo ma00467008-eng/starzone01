@@ -64,6 +64,13 @@
       "when": 1793697923281,
       "tag": "0008_referral_system",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793764381130,
+      "tag": "0009_coin_deductions",
+      "breakpoints": true
     }
   ]
 }
