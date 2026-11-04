@@ -22,7 +22,7 @@ export const Route = createFileRoute("/add-coins")({
 });
 
 function AddCoins() {
-  const { t, settings, session, profile } = useApp() as ReturnType<typeof useApp> & { profile?: { balance?: number } };
+  const { t, settings, session, profile } = useApp();
   const cfg = settings["coins"] ?? {};
   const min = Number(cfg.min ?? 300), max = Number(cfg.max ?? 10000);
   const amounts: number[] = cfg.amounts ?? [300, 500, 1000, 2000, 5000, 10000];

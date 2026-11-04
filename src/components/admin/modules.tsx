@@ -163,6 +163,55 @@ function useDraft(v: Row | undefined) {
   return [d, (p: Row) => setD((o) => ({ ...o, ...p }))] as const;
 }
 
+/* ---------------- Coin deductions ---------------- */
+function DeductionsPanel() {
+  const [filter, setFilter] = useState("pending");
+  const refresh = useRefresh();
+  const { data: reqs } = useQuery({
+    queryKey: ["adm", "deductions", filter],
+    queryFn: async () => {
+      const r = (await db.from("coin_deductions").select("*").eq("status", filter).order("created_at", { ascending: filter === "pending" }).limit(100)).data ?? [];
+      const ids = [...new Set(r.map((x: Row) => x.user_id))];
+      const ps = ids.length ? (await db.from("profiles").select("id,uid,username,phone,balance").in("id", ids)).data ?? [] : [];
+      const m = Object.fromEntries(ps.map((p: Row) => [p.id, p]));
+      return r.map((x: Row) => ({ ...x, p: m[x.user_id] }));
+    },
+  });
+  const [busy, setBusy] = useState<string | null>(null);
+  const review = async (r: Row, approve: boolean) => {
+    const note = approve ? "" : window.prompt("Rejection reason (shown to user)", "Your deduction request was not approved.");
+    if (!approve && note === null) return;
+    setBusy(r.id);
+    await run(supabase.rpc("admin_review_deduction", { _id: r.id, _approve: approve, _note: note ?? "" }), approve ? "Approved & deducted" : "Rejected");
+    setBusy(null); refresh("deductions", "stats");
+  };
+  return (
+    <Panel title="Coin deduction requests" actions={
+      <div className="flex gap-1">{["pending", "approved", "rejected"].map((s) => <Btn key={s} variant={filter === s ? "primary" : "ghost"} onClick={() => setFilter(s)} className="capitalize">{s}</Btn>)}</div>
+    }>
+      {!reqs?.length ? <Empty text="No requests" /> : (
+        <ul className="divide-y divide-border">
+          {reqs.map((r: Row) => (
+            <li key={r.id} className="flex flex-wrap items-center gap-3 py-3 text-sm">
+              <div className="min-w-0 flex-1">
+                <div className="font-semibold">{r.p?.username} <span className="font-mono text-xs text-muted-foreground">UID {r.p?.uid} · {r.p?.phone} · Bal {fmt(r.p?.balance ?? 0)}</span></div>
+                <div className="text-xs text-muted-foreground">{when(r.created_at)} · “{r.note}”{r.admin_note ? ` · Admin: ${r.admin_note}` : ""}</div>
+              </div>
+              <div className="font-display text-lg font-bold text-destructive">−{fmt(r.amount)}</div>
+              {r.status === "pending" ? (
+                <div className="flex gap-1">
+                  <Btn variant="success" disabled={busy === r.id} onClick={() => review(r, true)}><Check className="h-4 w-4" />Approve</Btn>
+                  <Btn variant="danger" disabled={busy === r.id} onClick={() => review(r, false)}><X className="h-4 w-4" />Reject</Btn>
+                </div>
+              ) : <StatusPill s={r.status} />}
+            </li>
+          ))}
+        </ul>
+      )}
+    </Panel>
+  );
+}
+
 /* ---------------- Coins ---------------- */
 export function CoinsMod() {
   const [filter, setFilter] = useState("pending");
