@@ -22,59 +22,74 @@ export const Route = createFileRoute("/add-coins")({
 });
 
 function AddCoins() {
-  const { t, settings, session } = useApp();
+  const { t, settings, session, profile } = useApp();
   const cfg = settings["coins"] ?? {};
   const min = Number(cfg.min ?? 300), max = Number(cfg.max ?? 10000);
   const amounts: number[] = cfg.amounts ?? [300, 500, 1000, 2000, 5000, 10000];
+  const [mode, setMode] = useState<"add" | "deduct">("add");
   const [amount, setAmount] = useState(amounts[0] ?? min);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const qc = useQueryClient();
+  const table = mode === "add" ? "coin_requests" : "coin_deductions";
   const { data: reqs } = useQuery({
-    queryKey: ["coin-reqs", session?.user.id], enabled: !!session,
-    queryFn: async () => (await supabase.from("coin_requests").select("*").order("created_at", { ascending: false }).limit(30)).data ?? [],
+    queryKey: ["coin-reqs", mode, session?.user.id], enabled: !!session,
+    queryFn: async () => (await supabase.from(table).select("*").order("created_at", { ascending: false }).limit(30)).data ?? [],
   });
   const submit = async () => {
-    if (amount < min || amount > max) { toast.error(`${fmt(min)} – ${fmt(max)}`); return; }
+    if (!amount || amount < 1) { toast.error("Enter a valid amount"); return; }
+    if (mode === "add" && (amount < min || amount > max)) { toast.error(`${fmt(min)} – ${fmt(max)}`); return; }
+    if (note.trim().length < 3) { toast.error("Instructions are required"); return; }
     setBusy(true);
-    const { error } = await supabase.rpc("submit_coin_request", { _amount: amount, _note: note });
+    const { error } = mode === "add"
+      ? await supabase.rpc("submit_coin_request", { _amount: amount, _note: note })
+      : await supabase.rpc("submit_coin_deduction", { _amount: amount, _note: note });
     setBusy(false);
     if (error) { toast.error(errMsg(error)); return; }
-    toast.success(t("coins.sent")); setNote("");
+    toast.success(mode === "add" ? t("coins.sent") : "Deduction request sent"); setNote("");
     qc.invalidateQueries({ queryKey: ["coin-reqs"] });
   };
   return (
     <AppShell title={t("coins.title")} back="/account">
       <RequireLogin>
         <div className="space-y-4">
-          {(cfg.instructions || cfg.image_url) && (
+          <div className="grid grid-cols-2 gap-1 rounded-xl bg-secondary p-1">
+            {(["add", "deduct"] as const).map((m) => (
+              <button key={m} onClick={() => setMode(m)} className={cn("rounded-lg py-2.5 font-display text-sm font-bold transition", mode === m ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground")}>
+                {m === "add" ? "Add Coins" : "Coin Deduction"}
+              </button>
+            ))}
+          </div>
+          {mode === "add" && (cfg.instructions || cfg.image_url) && (
             <Card className="space-y-3">
               {cfg.instructions && <p className="whitespace-pre-line text-sm text-muted-foreground">{cfg.instructions}</p>}
               {cfg.image_url && <img src={cfg.image_url} alt="Instructions" className="w-full rounded-xl" />}
             </Card>
           )}
           <Card className="space-y-4">
-            <h2 className="font-display font-bold">{t("coins.choose")}</h2>
-            <div className="grid grid-cols-3 gap-2">
-              {amounts.map((a) => (
-                <button key={a} onClick={() => setAmount(a)} className={cn("flex items-center justify-center gap-1 rounded-xl border-2 py-3 font-display font-bold tabular-nums transition", amount === a ? "border-primary bg-secondary text-primary-deep" : "border-border")}><CoinIcon />{fmt(a)}</button>
-              ))}
-            </div>
-            <label className="block text-xs text-muted-foreground">{t("coins.custom")} ({fmt(min)} – {fmt(max)})
-              <input type="number" value={amount} min={min} max={max} onChange={(e) => setAmount(Number(e.target.value))} className="mt-1 h-11 w-full rounded-xl border border-input bg-background px-3 text-base font-bold text-foreground outline-none focus:border-primary" />
+            <h2 className="font-display font-bold">{mode === "add" ? t("coins.choose") : "Amount to deduct"}</h2>
+            {mode === "add" && (
+              <div className="grid grid-cols-3 gap-2">
+                {amounts.map((a) => (
+                  <button key={a} onClick={() => setAmount(a)} className={cn("flex items-center justify-center gap-1 rounded-xl border-2 py-3 font-display font-bold tabular-nums transition", amount === a ? "border-primary bg-secondary text-primary-deep" : "border-border")}><CoinIcon />{fmt(a)}</button>
+                ))}
+              </div>
+            )}
+            <label className="block text-xs text-muted-foreground">{mode === "add" ? `${t("coins.custom")} (${fmt(min)} – ${fmt(max)})` : `Amount${profile?.balance != null ? ` (balance ${fmt(profile.balance)})` : ""}`}
+              <input type="number" value={amount} min={1} onChange={(e) => setAmount(Number(e.target.value))} className="mt-1 h-11 w-full rounded-xl border border-input bg-background px-3 text-base font-bold text-foreground outline-none focus:border-primary" />
             </label>
-            <label className="block text-xs text-muted-foreground">{t("coins.note")}
-              <textarea value={note} maxLength={300} onChange={(e) => setNote(e.target.value)} rows={2} className="mt-1 w-full rounded-xl border border-input bg-background p-3 text-sm text-foreground outline-none focus:border-primary" />
+            <label className="block text-xs text-muted-foreground">Instructions <span className="text-destructive">*</span>
+              <textarea value={note} required maxLength={300} onChange={(e) => setNote(e.target.value)} rows={3} placeholder="Write your instructions (required)" className="mt-1 w-full rounded-xl border border-input bg-background p-3 text-sm text-foreground outline-none focus:border-primary" />
             </label>
-            <PrimaryButton onClick={submit} loading={busy}>{t("coins.request")} · {fmt(amount)}</PrimaryButton>
+            <PrimaryButton onClick={submit} loading={busy}>{mode === "add" ? t("coins.request") : "Request deduction"} · {fmt(amount || 0)}</PrimaryButton>
           </Card>
           <Card>
-            <h2 className="mb-2 font-display font-bold">{t("coins.my_requests")}</h2>
+            <h2 className="mb-2 font-display font-bold">{mode === "add" ? t("coins.my_requests") : "My deduction requests"}</h2>
             {!reqs?.length ? <Empty /> : (
               <ul className="divide-y divide-border text-sm">
                 {reqs.map((r) => (
-                  <li key={r.id} className="flex items-center justify-between py-2.5">
-                    <div><div className="font-bold tabular-nums">{fmt(r.amount)}</div><div className="text-xs text-muted-foreground">{new Date(r.created_at).toLocaleString()}</div>{r.admin_note && <div className="text-xs">{r.admin_note}</div>}</div>
+                  <li key={r.id} className="flex items-center justify-between gap-3 py-2.5">
+                    <div className="min-w-0"><div className="font-bold tabular-nums">{mode === "deduct" ? "−" : ""}{fmt(r.amount)}</div><div className="text-xs text-muted-foreground">{new Date(r.created_at).toLocaleString()}</div>{r.note && <div className="truncate text-xs text-muted-foreground">{r.note}</div>}{r.admin_note && <div className="text-xs">{r.admin_note}</div>}</div>
                     <StatusPill s={r.status} />
                   </li>
                 ))}

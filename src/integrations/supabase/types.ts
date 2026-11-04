@@ -134,6 +134,42 @@ export type Database = {
         }
         Relationships: []
       }
+      coin_deductions: {
+        Row: {
+          admin_note: string | null
+          amount: number
+          created_at: string
+          id: string
+          note: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          admin_note?: string | null
+          amount: number
+          created_at?: string
+          id?: string
+          note: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          admin_note?: string | null
+          amount?: number
+          created_at?: string
+          id?: string
+          note?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       coin_requests: {
         Row: {
           admin_note: string | null
@@ -859,6 +895,10 @@ export type Database = {
         Args: { _approve: boolean; _id: string; _note: string }
         Returns: Json
       }
+      admin_review_deduction: {
+        Args: { _approve: boolean; _id: string; _note: string }
+        Returns: Json
+      }
       admin_set_status: {
         Args: { _status: string; _user: string }
         Returns: undefined
@@ -899,6 +939,10 @@ export type Database = {
       }
       rand01: { Args: never; Returns: number }
       redeem_gift: { Args: { _code: string }; Returns: Json }
+      submit_coin_deduction: {
+        Args: { _amount: number; _note: string }
+        Returns: Json
+      }
       submit_coin_request: {
         Args: { _amount: number; _note: string }
         Returns: Json
