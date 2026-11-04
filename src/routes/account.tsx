@@ -52,7 +52,10 @@ function AccountPage() {
             </div>
             <div className="mt-5 flex items-end justify-between rounded-2xl bg-primary-foreground/15 p-4">
               <div><div className="text-xs opacity-85">{t("acc.balance")}</div><Balance className="text-2xl" /></div>
-              <Link to="/add-coins" className="inline-flex items-center gap-1.5 rounded-full bg-card px-4 py-2 text-sm font-bold text-primary-deep shadow-card"><PlusCircle className="h-4 w-4" />{t("home.add_coins")}</Link>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <Link to="/add-coins" search={{ mode: "add" }} className="inline-flex items-center justify-center gap-1.5 rounded-full bg-card px-4 py-2.5 text-sm font-bold text-primary-deep shadow-card"><PlusCircle className="h-4 w-4" />{t("home.add_coins")}</Link>
+              <Link to="/add-coins" search={{ mode: "deduct" }} className="inline-flex items-center justify-center gap-1.5 rounded-full border border-primary-foreground/60 bg-primary-foreground/15 px-4 py-2.5 text-sm font-bold"><MinusCircle className="h-4 w-4" />Coin Deduction</Link>
             </div>
           </div>
 

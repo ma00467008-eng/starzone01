@@ -90,7 +90,7 @@ function Home() {
         {session && (
           <div className="flex items-center justify-between rounded-2xl bg-gradient-primary p-4 text-primary-foreground shadow-glow">
             <div><div className="text-xs opacity-80">{t("acc.balance")}</div><Balance className="text-2xl" /></div>
-            <Link to="/account" className="rounded-full bg-card px-4 py-2 text-sm font-bold text-primary-deep">{t("home.add_coins")}</Link>
+            <Link to="/add-coins" search={{ mode: "add" }} className="rounded-full bg-card px-4 py-2 text-sm font-bold text-primary-deep">{t("home.add_coins")}</Link>
           </div>
         )}
         {!!featured.length && <Section title={t("home.featured")} icon={Flame}><div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1">{featured.map((g) => <GameCard key={g.slug} g={g} wide />)}</div></Section>}
