@@ -715,9 +715,10 @@ export function SecurityMod() {
     await supabase.rpc("clear_must_change");
     setPw(""); setPw2(""); toast.success("Admin password changed. The old password no longer works.");
   };
-  const reset = () => confirmDo("Reset ALL stats? This clears every game round, transaction, coin request and withdrawal, and sets every balance to 0. This cannot be undone.", async () => {
+  const reset = async () => {
+    if (!confirmDo("Reset ALL stats? This clears every game round, transaction, coin request and withdrawal, and sets every balance to 0. This cannot be undone.")) return;
     await run(db.rpc("admin_reset_stats"), "All stats reset to 0");
-  });
+  };
   return (
     <>
       <Panel title="Change admin password">
