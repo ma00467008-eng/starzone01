@@ -25,8 +25,6 @@ const TABS = [
   { k: "coins", label: "Coin Requests", icon: Coins, C: CoinsMod },
   { k: "games", label: "Games", icon: Gamepad2, C: GamesMod },
   { k: "media", label: "Banners & Pop-ups", icon: Image, C: MediaMod },
-  { k: "chat", label: "Chat Inbox", icon: MessageCircle, C: ChatMod },
-  { k: "auto", label: "Auto Messages", icon: Bot, C: AutoMsgMod },
   { k: "support", label: "Live Support", icon: LifeBuoy, C: SupportMod },
   { k: "gifts", label: "Gift Codes", icon: Gift, C: GiftsMod },
   { k: "notify", label: "Notifications", icon: Bell, C: NotifyMod },
