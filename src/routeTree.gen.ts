@@ -14,7 +14,6 @@ import { Route as AccountRouteImport } from './routes/account'
 import { Route as AddCoinsRouteImport } from './routes/add-coins'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AuthRouteImport } from './routes/auth'
-import { Route as ChatRouteImport } from './routes/chat'
 import { Route as EarnRouteImport } from './routes/earn'
 import { Route as PromoRouteImport } from './routes/promo'
 import { Route as GameSlugRouteImport } from './routes/game.$slug'
@@ -45,11 +44,6 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ChatRoute = ChatRouteImport.update({
-  id: '/chat',
-  path: '/chat',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const EarnRoute = EarnRouteImport.update({
   id: '/earn',
   path: '/earn',
@@ -77,7 +71,6 @@ export interface FileRoutesByFullPath {
   '/add-coins': typeof AddCoinsRoute
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
-  '/chat': typeof ChatRoute
   '/earn': typeof EarnRoute
   '/promo': typeof PromoRoute
   '/game/$slug': typeof GameSlugRoute
@@ -89,7 +82,6 @@ export interface FileRoutesByTo {
   '/add-coins': typeof AddCoinsRoute
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
-  '/chat': typeof ChatRoute
   '/earn': typeof EarnRoute
   '/promo': typeof PromoRoute
   '/game/$slug': typeof GameSlugRoute
@@ -102,7 +94,6 @@ export interface FileRoutesById {
   '/add-coins': typeof AddCoinsRoute
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
-  '/chat': typeof ChatRoute
   '/earn': typeof EarnRoute
   '/promo': typeof PromoRoute
   '/game/$slug': typeof GameSlugRoute
@@ -116,7 +107,6 @@ export interface FileRouteTypes {
     | '/add-coins'
     | '/admin'
     | '/auth'
-    | '/chat'
     | '/earn'
     | '/promo'
     | '/game/$slug'
@@ -128,7 +118,6 @@ export interface FileRouteTypes {
     | '/add-coins'
     | '/admin'
     | '/auth'
-    | '/chat'
     | '/earn'
     | '/promo'
     | '/game/$slug'
@@ -140,7 +129,6 @@ export interface FileRouteTypes {
     | '/add-coins'
     | '/admin'
     | '/auth'
-    | '/chat'
     | '/earn'
     | '/promo'
     | '/game/$slug'
@@ -153,7 +141,6 @@ export interface RootRouteChildren {
   AddCoinsRoute: typeof AddCoinsRoute
   AdminRoute: typeof AdminRoute
   AuthRoute: typeof AuthRoute
-  ChatRoute: typeof ChatRoute
   EarnRoute: typeof EarnRoute
   PromoRoute: typeof PromoRoute
   GameSlugRoute: typeof GameSlugRoute
@@ -197,13 +184,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/chat': {
-      id: '/chat'
-      path: '/chat'
-      fullPath: '/chat'
-      preLoaderRoute: typeof ChatRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/earn': {
       id: '/earn'
       path: '/earn'
@@ -241,7 +221,6 @@ const rootRouteChildren: RootRouteChildren = {
   AddCoinsRoute: AddCoinsRoute,
   AdminRoute: AdminRoute,
   AuthRoute: AuthRoute,
-  ChatRoute: ChatRoute,
   EarnRoute: EarnRoute,
   PromoRoute: PromoRoute,
   GameSlugRoute: GameSlugRoute,
