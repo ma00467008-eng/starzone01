@@ -14,6 +14,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { AppProvider } from "@/lib/app-context";
 import { Toaster } from "@/components/ui/sonner";
+import { LoginPopups, MustChangePassword } from "@/components/sz/popups";
 
 function NotFoundComponent() {
   return (
@@ -92,6 +93,8 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <AppProvider>
         <Outlet />
+        <LoginPopups />
+        <MustChangePassword />
         <Toaster position="top-center" richColors />
       </AppProvider>
     </QueryClientProvider>

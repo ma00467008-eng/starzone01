@@ -71,6 +71,13 @@
       "when": 1793764381130,
       "tag": "0009_coin_deductions",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793854219588,
+      "tag": "0010_coins_fix_house_edge_reset",
+      "breakpoints": true
     }
   ]
 }

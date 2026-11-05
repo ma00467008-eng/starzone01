@@ -104,8 +104,8 @@ function Home() {
         <Section title={t("home.community")} icon={Headphones}>
           <div className="space-y-2">
             <div className="grid grid-cols-2 gap-2">
-              <Link to="/chat" className="rounded-xl bg-card px-3 py-2.5 text-center text-sm font-semibold shadow-card">{t("chat.title")}</Link>
-              <Link to="/chat" className="rounded-xl bg-card px-3 py-2.5 text-center text-sm font-semibold shadow-card">{t("home.support")}</Link>
+              <Link to="/earn" className="rounded-xl bg-card px-3 py-2.5 text-center text-sm font-semibold shadow-card">{t("nav.earn")}</Link>
+              <Link to="/me/$section" params={{ section: "support" }} className="rounded-xl bg-card px-3 py-2.5 text-center text-sm font-semibold shadow-card">{t("home.support")}</Link>
             </div>
             <SocialLinks />
           </div>

@@ -1,10 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { LayoutDashboard, Users, Coins, Gamepad2, Image, MessageCircle, Bot, LifeBuoy, Gift, Bell, Settings, Type, ArrowLeft, ShieldAlert } from "lucide-react";
+import { LayoutDashboard, Users, Coins, Gamepad2, Image, KeyRound, LifeBuoy, Gift, Bell, Settings, Type, ArrowLeft, ShieldAlert } from "lucide-react";
 import { useApp } from "@/lib/app-context";
 import { Spinner } from "@/components/sz/shell";
 import { cn } from "@/lib/utils";
-import { Dashboard, UsersMod, CoinsMod, GamesMod, MediaMod, ChatMod, AutoMsgMod, SupportMod, GiftsMod, NotifyMod, SettingsMod, ContentMod } from "@/components/admin/modules";
+import { Dashboard, UsersMod, CoinsMod, GamesMod, MediaMod, SupportMod, GiftsMod, NotifyMod, SettingsMod, ContentMod, SecurityMod } from "@/components/admin/modules";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({ meta: [
@@ -25,12 +25,11 @@ const TABS = [
   { k: "coins", label: "Coin Requests", icon: Coins, C: CoinsMod },
   { k: "games", label: "Games", icon: Gamepad2, C: GamesMod },
   { k: "media", label: "Banners & Pop-ups", icon: Image, C: MediaMod },
-  { k: "chat", label: "Chat Inbox", icon: MessageCircle, C: ChatMod },
-  { k: "auto", label: "Auto Messages", icon: Bot, C: AutoMsgMod },
   { k: "support", label: "Live Support", icon: LifeBuoy, C: SupportMod },
   { k: "gifts", label: "Gift Codes", icon: Gift, C: GiftsMod },
   { k: "notify", label: "Notifications", icon: Bell, C: NotifyMod },
   { k: "settings", label: "Site & Links", icon: Settings, C: SettingsMod },
+  { k: "security", label: "Admin Security", icon: KeyRound, C: SecurityMod },
   { k: "content", label: "Text Editor", icon: Type, C: ContentMod },
 ] as const;
 

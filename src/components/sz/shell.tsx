@@ -1,6 +1,6 @@
 import { Link, useLocation } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Home, Gift, MessageCircle, User, Loader2, Minus, Plus } from "lucide-react";
+import { Home, Gift, Users, User, Loader2, Minus, Plus } from "lucide-react";
 import type { ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useApp } from "@/lib/app-context";
@@ -14,7 +14,7 @@ export function BottomNav() {
   const items = [
     { to: "/", icon: Home, label: t("nav.home") },
     { to: "/promo", icon: Gift, label: t("nav.promo") },
-    { to: "/chat", icon: MessageCircle, label: t("nav.chat") },
+    { to: "/earn", icon: Users, label: t("nav.earn") },
     { to: "/account", icon: User, label: t("nav.account") },
   ] as const;
   return (

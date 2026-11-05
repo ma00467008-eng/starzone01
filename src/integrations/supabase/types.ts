@@ -179,6 +179,7 @@ export type Database = {
           note: string | null
           reviewed_at: string | null
           reviewed_by: string | null
+          screenshot_path: string | null
           status: string
           user_id: string
         }
@@ -190,6 +191,7 @@ export type Database = {
           note?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          screenshot_path?: string | null
           status?: string
           user_id: string
         }
@@ -201,6 +203,7 @@ export type Database = {
           note?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          screenshot_path?: string | null
           status?: string
           user_id?: string
         }
@@ -818,6 +821,27 @@ export type Database = {
         }
         Relationships: []
       }
+      wingo_results: {
+        Row: {
+          duration: number
+          game: string
+          number: number
+          period: number
+        }
+        Insert: {
+          duration: number
+          game: string
+          number: number
+          period: number
+        }
+        Update: {
+          duration?: number
+          game?: string
+          number?: number
+          period?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -891,6 +915,7 @@ export type Database = {
         }[]
       }
       admin_referrals: { Args: { _user: string }; Returns: Json }
+      admin_reset_stats: { Args: never; Returns: Json }
       admin_review_coin: {
         Args: { _approve: boolean; _id: string; _note: string }
         Returns: Json
@@ -944,7 +969,7 @@ export type Database = {
         Returns: Json
       }
       submit_coin_request: {
-        Args: { _amount: number; _note: string }
+        Args: { _amount: number; _note: string; _screenshot?: string }
         Returns: Json
       }
       wingo_bet: {

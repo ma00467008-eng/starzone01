@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { errMsg } from "@/lib/app-context";
 import { DICT } from "@/lib/i18n-dict";
+import { signedUrl } from "@/lib/media";
 import { fmt } from "@/lib/sound";
 import { ChatThread } from "@/components/sz/chat-thread";
 import { StatusPill, Empty } from "@/components/sz/bits";
@@ -249,6 +250,7 @@ export function CoinsMod() {
                   <div className="font-semibold">{r.p?.username} <span className="font-mono text-xs text-muted-foreground">UID {r.p?.uid} · {r.p?.phone}</span></div>
                   <div className="text-xs text-muted-foreground">{when(r.created_at)}{r.note ? ` · “${r.note}”` : ""}{r.admin_note ? ` · Admin: ${r.admin_note}` : ""}</div>
                 </div>
+                {r.screenshot_path && <Shot path={r.screenshot_path} />}
                 <div className="font-display text-lg font-bold text-primary-deep">{fmt(r.amount)}</div>
                 {r.status === "pending" ? (
                   <div className="flex gap-1">
@@ -270,10 +272,15 @@ export function CoinsMod() {
         </div>
         <div className="mt-3 space-y-3">
           <Field label="Amount buttons (comma separated)"><input value={(d.amounts ?? [300, 500, 1000, 2000, 5000, 10000]).join(", ")} onChange={(e) => set({ amounts: e.target.value.split(",").map((x) => Number(x.trim())).filter((x) => x > 0) })} className={inputCls} /></Field>
-          <Field label="Instructions"><textarea value={d.instructions ?? ""} onChange={(e) => set({ instructions: e.target.value })} className={areaCls} /></Field>
+          <Field label="Deposit instructions"><textarea value={d.instructions ?? ""} onChange={(e) => set({ instructions: e.target.value })} className={areaCls} /></Field>
           <div className="flex flex-wrap items-center gap-2">
             <ImageUpload label="Instruction screenshot" onDone={(url) => set({ image_url: url })} />
             {d.image_url && <><img src={d.image_url} alt="" className="h-16 rounded-lg" /><Btn variant="ghost" onClick={() => set({ image_url: null })}>Remove</Btn></>}
+          </div>
+          <Field label="Withdrawal instructions"><textarea value={d.deduct_instructions ?? ""} onChange={(e) => set({ deduct_instructions: e.target.value })} className={areaCls} /></Field>
+          <div className="flex flex-wrap items-center gap-2">
+            <ImageUpload label="Withdrawal screenshot" onDone={(url) => set({ deduct_image_url: url })} />
+            {d.deduct_image_url && <><img src={d.deduct_image_url} alt="" className="h-16 rounded-lg" /><Btn variant="ghost" onClick={() => set({ deduct_image_url: null })}>Remove</Btn></>}
           </div>
           <Btn onClick={() => save(d)}>Save settings</Btn>
         </div>
@@ -685,5 +692,46 @@ function ContentRow({ k, row, onDone }: { k: string; row?: Row; onDone: () => vo
         {row && DICT[k] && <Btn variant="ghost" className="h-8" onClick={async () => { if (await run(db.from("content").delete().eq("key", k), "Restored default")) onDone(); }}><RotateCcw className="h-3.5 w-3.5" />Restore default</Btn>}
       </div>
     </li>
+  );
+}
+
+function Shot({ path }: { path: string }) {
+  const [url, setUrl] = useState("");
+  useEffect(() => { signedUrl(path).then(setUrl); }, [path]);
+  if (!url) return null;
+  return <a href={url} target="_blank" rel="noreferrer"><img src={url} alt="Screenshot" className="h-14 w-14 rounded-lg border border-border object-cover" /></a>;
+}
+
+/* ---------------- Admin security ---------------- */
+export function SecurityMod() {
+  const [pw, setPw] = useState(""); const [pw2, setPw2] = useState(""); const [busy, setBusy] = useState(false);
+  const save = async () => {
+    if (pw.length < 8) return toast.error("Password must be at least 8 characters");
+    if (pw !== pw2) return toast.error("Passwords do not match");
+    setBusy(true);
+    const { error } = await supabase.auth.updateUser({ password: pw });
+    setBusy(false);
+    if (error) return toast.error(errMsg(error));
+    await supabase.rpc("clear_must_change");
+    setPw(""); setPw2(""); toast.success("Admin password changed. The old password no longer works.");
+  };
+  const reset = async () => {
+    if (!confirmDo("Reset ALL stats? This clears every game round, transaction, coin request and withdrawal, and sets every balance to 0. This cannot be undone.")) return;
+    await run(db.rpc("admin_reset_stats"), "All stats reset to 0");
+  };
+  return (
+    <>
+      <Panel title="Change admin password">
+        <div className="grid max-w-md gap-3">
+          <Field label="New password"><input type="password" value={pw} onChange={(e) => setPw(e.target.value)} className={inputCls} /></Field>
+          <Field label="Confirm new password"><input type="password" value={pw2} onChange={(e) => setPw2(e.target.value)} className={inputCls} /></Field>
+          <Btn disabled={busy} onClick={save}>Save new password</Btn>
+        </div>
+      </Panel>
+      <Panel title="Fresh start">
+        <p className="mb-2 text-sm text-muted-foreground">Set all stats, balances and history back to 0 like a brand-new website. Users, games, banners and texts are kept.</p>
+        <Btn variant="danger" onClick={reset}>Reset all stats to 0</Btn>
+      </Panel>
+    </>
   );
 }

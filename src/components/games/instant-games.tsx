@@ -162,7 +162,7 @@ export function DragonTigerGame({ game }: { game: GameRow }) {
   const [road, setRoad] = useState<string[]>([]);
   const go = async () => {
     setFlip(0); setRes(null);
-    const r = await play(stake, { pick }, 1400, (x) => <span className="capitalize">{x.winner} wins</span>, (x) => beep(x.winner === "dragon" ? "dragon" : x.winner === "tiger" ? "tiger" : "win"));
+    const r = await play(stake, { pick }, 1400, (x) => <span className="capitalize">{x.winner} wins</span>, (x) => beep(x.win ? "win" : "lose"));
     if (!r) return;
     setRes(r);
     setTimeout(() => { beep("flip"); setFlip(1); }, 300);
@@ -171,18 +171,28 @@ export function DragonTigerGame({ game }: { game: GameRow }) {
   };
   const Side = ({ side, v, s, shown }: { side: "dragon" | "tiger"; v?: number; s?: number; shown: boolean }) => {
     const won = res && flip === 2 && res.winner === side;
+    const red = s === 1 || s === 2;
     return (
       <div className="flex flex-1 flex-col items-center gap-2">
-        <div className={cn("font-display text-lg font-black uppercase tracking-widest", side === "dragon" ? "text-game-red" : "text-primary")}>{side}</div>
-        <div className={cn("grid h-36 w-24 place-items-center rounded-xl border-2 shadow-card transition-all duration-500 [transform-style:preserve-3d]", shown && v ? "border-card bg-card" : side === "dragon" ? "border-game-red bg-gradient-to-b from-game-red to-night" : "border-primary bg-gradient-to-b from-primary to-night", won && "ring-4 ring-gold shadow-glow")}>
-          {shown && v ? (
-            <div className={cn("text-center font-display font-black", s === 1 || s === 2 ? "text-game-red" : "text-foreground")}><div className="text-4xl">{RANK[v]}</div><div className="text-3xl">{SUIT[s ?? 0]}</div></div>
-          ) : <span className="font-display text-2xl font-black text-primary-foreground/80">SZ</span>}
+        <div className={cn("rounded-full px-4 py-1 font-display text-xs font-black uppercase tracking-[0.3em]", side === "dragon" ? "bg-game-red/15 text-game-red" : "bg-primary/15 text-primary")}>{side}</div>
+        <div className="[perspective:800px]">
+          <div className={cn("relative h-36 w-[6.2rem] rounded-lg transition-transform duration-500 [transform-style:preserve-3d]", shown && v && "[transform:rotateY(180deg)]", won && "ring-2 ring-gold ring-offset-2 ring-offset-night")}>
+            <div className={cn("absolute inset-0 rounded-lg border border-gold/50 p-1.5 shadow-card [backface-visibility:hidden]", side === "dragon" ? "bg-game-red" : "bg-primary-deep")}>
+              <div className="h-full w-full rounded-md border border-gold/40" style={{ backgroundImage: "repeating-linear-gradient(45deg, transparent 0 6px, rgba(255,255,255,.08) 6px 7px), repeating-linear-gradient(-45deg, transparent 0 6px, rgba(255,255,255,.08) 6px 7px)" }} />
+            </div>
+            <div className={cn("absolute inset-0 rounded-lg border border-border bg-card p-1.5 shadow-card [backface-visibility:hidden] [transform:rotateY(180deg)]", red ? "text-game-red" : "text-foreground")}>
+              {v ? (<>
+                <div className="absolute left-1.5 top-1 text-center font-display text-sm font-bold leading-none">{RANK[v]}<div className="text-xs">{SUIT[s ?? 0]}</div></div>
+                <div className="grid h-full place-items-center text-5xl">{SUIT[s ?? 0]}</div>
+                <div className="absolute bottom-1 right-1.5 rotate-180 text-center font-display text-sm font-bold leading-none">{RANK[v]}<div className="text-xs">{SUIT[s ?? 0]}</div></div>
+              </>) : null}
+            </div>
+          </div>
         </div>
       </div>
     );
   };
-  const opts = [["dragon", "1:1", "bg-game-red"], ["tie", "8:1", "bg-game-green"], ["tiger", "1:1", "bg-primary"]] as const;
+  const opts = [["dragon", "1.95×", "bg-game-red"], ["tie", "9×", "bg-game-green"], ["tiger", "1.95×", "bg-primary"]] as const;
   return (
     <div className="space-y-3">
       <Stage className="bg-gradient-night p-4">

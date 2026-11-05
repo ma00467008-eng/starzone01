@@ -33,11 +33,11 @@ export function LoginPopups() {
   if (!cur) return null;
   return (
     <Dialog open onOpenChange={(o) => !o && close()}>
-      <DialogContent className="max-w-sm overflow-hidden border-0 p-0 [&>button]:hidden">
+      <DialogContent className="w-[86vw] max-w-[340px] overflow-hidden rounded-3xl border-0 bg-card p-0 [&>button]:hidden">
         <DialogTitle className="sr-only">{cur.title || "Promotion"}</DialogTitle>
         <button onClick={close} aria-label={t("common.close")} className="absolute right-2 top-2 z-10 grid h-8 w-8 place-items-center rounded-full bg-foreground/60 text-background"><X className="h-4 w-4" /></button>
-        {cur.link ? <a href={cur.link} target="_blank" rel="noreferrer"><img src={cur.image_url} alt={cur.title ?? ""} className="w-full" /></a> : <img src={cur.image_url} alt={cur.title ?? ""} className="w-full" />}
-        <div className="flex items-center justify-between px-4 pb-4">
+        {cur.link ? <a href={cur.link} target="_blank" rel="noreferrer"><img src={cur.image_url} alt={cur.title ?? ""} className="aspect-[3/4] w-full object-cover" /></a> : <img src={cur.image_url} alt={cur.title ?? ""} className="aspect-[3/4] w-full object-cover" />}
+        <div className="flex items-center justify-between px-4 py-3">
           <label className="flex items-center gap-2 text-xs text-muted-foreground">
             <input type="checkbox" checked={dont} onChange={(e) => setDont(e.target.checked)} className="accent-primary" /> {t("popup.dont_remind")}
           </label>

@@ -6,6 +6,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { errMsg, useApp } from "@/lib/app-context";
 import { fmt } from "@/lib/sound";
 import { cn } from "@/lib/utils";
+import { uploadFile } from "@/lib/media";
+import { ImagePlus, X } from "lucide-react";
 import { AppShell, Card, PrimaryButton, RequireLogin } from "@/components/sz/shell";
 import { CoinIcon, Empty, StatusPill } from "@/components/sz/bits";
 
@@ -32,6 +34,7 @@ function AddCoins() {
   const [amount, setAmount] = useState(amounts[0] ?? min);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
+  const [shot, setShot] = useState<File | null>(null);
   const qc = useQueryClient();
   const table = mode === "add" ? "coin_requests" : "coin_deductions";
   const { data: reqs } = useQuery({
@@ -43,12 +46,16 @@ function AddCoins() {
     if (mode === "add" && (amount < min || amount > max)) { toast.error(`${fmt(min)} – ${fmt(max)}`); return; }
     if (note.trim().length < 3) { toast.error(t("coins.instructions_required")); return; }
     setBusy(true);
+    let path: string | undefined;
+    if (mode === "add" && shot && session) {
+      try { path = await uploadFile(session.user.id, shot); } catch (e) { setBusy(false); toast.error(errMsg(e)); return; }
+    }
     const { error } = mode === "add"
-      ? await supabase.rpc("submit_coin_request", { _amount: amount, _note: note })
+      ? await supabase.rpc("submit_coin_request", { _amount: amount, _note: note, _screenshot: path })
       : await supabase.rpc("submit_coin_deduction", { _amount: amount, _note: note });
     setBusy(false);
     if (error) { toast.error(errMsg(error)); return; }
-    toast.success(mode === "add" ? t("coins.sent") : t("coins.deduct_sent")); setNote("");
+    toast.success(mode === "add" ? t("coins.sent") : t("coins.deduct_sent")); setNote(""); setShot(null);
     qc.invalidateQueries({ queryKey: ["coin-reqs"] });
   };
   return (
@@ -62,12 +69,16 @@ function AddCoins() {
               </button>
             ))}
           </div>
-          {mode === "add" && (cfg.instructions || cfg.image_url) && (
-            <Card className="space-y-3">
-              {cfg.instructions && <p className="whitespace-pre-line text-sm text-muted-foreground">{cfg.instructions}</p>}
-              {cfg.image_url && <img src={cfg.image_url} alt="Instructions" className="w-full rounded-xl" />}
-            </Card>
-          )}
+          {(() => {
+            const ins = mode === "add" ? cfg.instructions : cfg.deduct_instructions;
+            const img = mode === "add" ? cfg.image_url : cfg.deduct_image_url;
+            return (ins || img) ? (
+              <Card className="space-y-3">
+                {ins && <p className="whitespace-pre-line text-sm text-muted-foreground">{ins}</p>}
+                {img && <img src={img} alt="" className="w-full rounded-xl" />}
+              </Card>
+            ) : null;
+          })()}
           <Card className="space-y-4">
             <h2 className="font-display font-bold">{mode === "add" ? t("coins.choose") : t("coins.deduct_amount")}</h2>
             {mode === "add" && (
@@ -80,9 +91,24 @@ function AddCoins() {
             <label className="block text-xs text-muted-foreground">{mode === "add" ? `${t("coins.custom")} (${fmt(min)} – ${fmt(max)})` : `${t("coins.amount")}${profile?.balance != null ? ` (${t("coins.balance_label")} ${fmt(profile.balance)})` : ""}`}
               <input type="number" value={amount} min={1} onChange={(e) => setAmount(Number(e.target.value))} className="mt-1 h-11 w-full rounded-xl border border-input bg-background px-3 text-base font-bold text-foreground outline-none focus:border-primary" />
             </label>
-            <label className="block text-xs text-muted-foreground">{t("coins.instructions")} <span className="text-destructive">*</span>
-              <textarea value={note} required maxLength={300} onChange={(e) => setNote(e.target.value)} rows={3} placeholder={t("coins.instructions_ph")} className="mt-1 w-full rounded-xl border border-input bg-background p-3 text-sm text-foreground outline-none focus:border-primary" />
+            <label className="block text-xs text-muted-foreground">{mode === "add" ? t("coins.instructions") : t("deduct.instructions")} <span className="text-destructive">*</span>
+              <textarea value={note} required maxLength={300} onChange={(e) => setNote(e.target.value)} rows={3} placeholder={mode === "add" ? t("coins.instructions_ph") : t("deduct.instructions_ph")} className="mt-1 w-full rounded-xl border border-input bg-background p-3 text-sm text-foreground outline-none focus:border-primary" />
             </label>
+            {mode === "add" && (
+              <div className="text-xs text-muted-foreground">{t("coins.screenshot")}
+                {shot ? (
+                  <div className="relative mt-1 inline-block">
+                    <img src={URL.createObjectURL(shot)} alt="" className="h-28 rounded-xl border border-border object-cover" />
+                    <button type="button" onClick={() => setShot(null)} className="absolute -right-2 -top-2 grid h-6 w-6 place-items-center rounded-full bg-destructive text-destructive-foreground"><X className="h-3.5 w-3.5" /></button>
+                  </div>
+                ) : (
+                  <label className="mt-1 flex h-20 cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-primary/40 bg-secondary/50 font-semibold text-primary-deep">
+                    <ImagePlus className="h-5 w-5" />{t("coins.screenshot_add")}
+                    <input type="file" accept="image/*" className="hidden" onChange={(e) => setShot(e.target.files?.[0] ?? null)} />
+                  </label>
+                )}
+              </div>
+            )}
             <PrimaryButton onClick={submit} loading={busy}>{mode === "add" ? t("coins.request") : t("coins.request_deduct")} · {fmt(amount || 0)}</PrimaryButton>
           </Card>
           <Card>
