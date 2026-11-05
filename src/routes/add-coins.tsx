@@ -51,7 +51,7 @@ function AddCoins() {
       try { path = await uploadFile(session.user.id, shot); } catch (e) { setBusy(false); toast.error(errMsg(e)); return; }
     }
     const { error } = mode === "add"
-      ? await supabase.rpc("submit_coin_request", { _amount: amount, _note: note, _screenshot: path })
+      ? await supabase.rpc("submit_coin_request", { _amount: amount, _note: note, ...(path ? { _screenshot: path } : {}) })
       : await supabase.rpc("submit_coin_deduction", { _amount: amount, _note: note });
     setBusy(false);
     if (error) { toast.error(errMsg(error)); return; }
