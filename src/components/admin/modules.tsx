@@ -704,16 +704,17 @@ function Shot({ path }: { path: string }) {
 
 /* ---------------- Admin security ---------------- */
 export function SecurityMod() {
-  const [pw, setPw] = useState(""); const [pw2, setPw2] = useState(""); const [busy, setBusy] = useState(false);
+  const [cur, setCur] = useState(""); const [pw, setPw] = useState(""); const [pw2, setPw2] = useState(""); const [busy, setBusy] = useState(false);
   const save = async () => {
     if (pw.length < 8) return toast.error("Password must be at least 8 characters");
     if (pw !== pw2) return toast.error("Passwords do not match");
+    if (!cur) return toast.error("Enter your current password");
     setBusy(true);
-    const { error } = await supabase.auth.updateUser({ password: pw });
+    const { error } = await supabase.auth.updateUser({ password: pw, current_password: cur } as never);
     setBusy(false);
     if (error) return toast.error(errMsg(error));
     await supabase.rpc("clear_must_change");
-    setPw(""); setPw2(""); toast.success("Admin password changed. The old password no longer works.");
+    setCur(""); setPw(""); setPw2(""); toast.success("Admin password changed. The old password no longer works.");
   };
   const reset = async () => {
     if (!confirmDo("Reset ALL stats? This clears every game round, transaction, coin request and withdrawal, and sets every balance to 0. This cannot be undone.")) return;
@@ -723,6 +724,7 @@ export function SecurityMod() {
     <>
       <Panel title="Change admin password">
         <div className="grid max-w-md gap-3">
+          <Field label="Current password"><input type="password" value={cur} onChange={(e) => setCur(e.target.value)} className={inputCls} /></Field>
           <Field label="New password"><input type="password" value={pw} onChange={(e) => setPw(e.target.value)} className={inputCls} /></Field>
           <Field label="Confirm new password"><input type="password" value={pw2} onChange={(e) => setPw2(e.target.value)} className={inputCls} /></Field>
           <Btn disabled={busy} onClick={save}>Save new password</Btn>

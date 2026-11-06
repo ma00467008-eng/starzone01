@@ -168,7 +168,7 @@ export function PasswordForm({ onDone }: { onDone?: () => void }) {
     try {
       const { error: e1 } = await supabase.auth.signInWithPassword({ email: phoneToEmail(profile!.phone), password: cur });
       if (e1) throw new Error("Current password is incorrect");
-      const { error } = await supabase.auth.updateUser({ password: pw });
+      const { error } = await supabase.auth.updateUser({ password: pw, current_password: cur } as never);
       if (error) throw error;
       await supabase.rpc("clear_must_change");
       toast.success(t("acc.password_changed")); setCur(""); setPw(""); setPw2(""); onDone?.();

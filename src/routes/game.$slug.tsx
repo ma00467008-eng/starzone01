@@ -7,6 +7,7 @@ import { Balance, Empty } from "@/components/sz/bits";
 import { WingoGame } from "@/components/games/wingo";
 import { CrashGame, MinesGame, ChickenGame } from "@/components/games/session-games";
 import { DiceGame, LimboGame, PlinkoGame, DragonTigerGame } from "@/components/games/instant-games";
+import { FortuneGemsGame } from "@/components/games/fortune-gems";
 import type { GameRow } from "@/components/games/types";
 
 export const Route = createFileRoute("/game/$slug")({
@@ -26,6 +27,7 @@ export const Route = createFileRoute("/game/$slug")({
 const MAP: Record<string, (p: { game: GameRow }) => React.ReactNode> = {
   wingo: WingoGame, trx: WingoGame, color: WingoGame,
   aviator: CrashGame, mines: MinesGame, chicken: ChickenGame,
+  "fortune-gems": FortuneGemsGame,
   dice: DiceGame, limbo: LimboGame, plinko: PlinkoGame, "dragon-tiger": DragonTigerGame,
 };
 
