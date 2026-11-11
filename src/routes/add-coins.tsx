@@ -7,7 +7,7 @@ import { errMsg, useApp } from "@/lib/app-context";
 import { fmt } from "@/lib/sound";
 import { cn } from "@/lib/utils";
 import { uploadFile } from "@/lib/media";
-import { ImagePlus, X } from "lucide-react";
+import { ImagePlus, X, ShieldCheck } from "lucide-react";
 import { AppShell, Card, PrimaryButton, RequireLogin } from "@/components/sz/shell";
 import { CoinIcon, Empty, StatusPill } from "@/components/sz/bits";
 
@@ -39,13 +39,50 @@ function AddCoins() {
   const [source, setSource] = useState<"easypaisa" | "jazzcash">("easypaisa");
   const qc = useQueryClient();
   const table = mode === "add" ? "coin_requests" : "coin_deductions";
+
+  // Check bound account
+  const { data: payoutAccount, refetch: refetchPayout } = useQuery({
+    queryKey: ["payout-account", session?.user.id],
+    enabled: !!session,
+    queryFn: async () => (await supabase.from("payout_accounts").select("*").maybeSingle()).data,
+  });
+  const [bindMethod, setBindMethod] = useState<"easypaisa" | "jazzcash">("easypaisa");
+  const [bindName, setBindName] = useState("");
+  const [bindNumber, setBindNumber] = useState("");
+  const [bindBusy, setBindBusy] = useState(false);
+
+  const handleBind = async () => {
+    if (!bindName.trim() || !bindNumber.trim()) {
+      toast.error("Please enter account name and number");
+      return;
+    }
+    setBindBusy(true);
+    const { error } = await supabase.rpc("bind_payout_account", {
+      _method: bindMethod,
+      _name: bindName.trim(),
+      _number: bindNumber.trim(),
+    });
+    setBindBusy(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Account bound successfully!");
+    refetchPayout();
+  };
+
   const { data: reqs } = useQuery({
     queryKey: ["coin-reqs", mode, session?.user.id], enabled: !!session,
     queryFn: async () => (await supabase.from(table).select("*").order("created_at", { ascending: false }).limit(30)).data ?? [],
   });
+
   const submit = async () => {
     if (!amount || amount < 1) { toast.error(t("coins.invalid_amount")); return; }
     if (mode === "add" && (amount < min || amount > max)) { toast.error(`${fmt(min)} – ${fmt(max)}`); return; }
+    if (mode === "deduct" && !payoutAccount) {
+      toast.error("Please bind your Easypaisa or JazzCash account first");
+      return;
+    }
     if (note.trim().length < 3) { toast.error(t("coins.instructions_required")); return; }
     setBusy(true);
     let path: string | undefined;
@@ -60,6 +97,7 @@ function AddCoins() {
     toast.success(mode === "add" ? t("coins.sent") : t("coins.deduct_sent")); setNote(""); setShot(null);
     qc.invalidateQueries({ queryKey: ["coin-reqs"] });
   };
+
   return (
     <AppShell title={t("coins.title")} back="/account">
       <RequireLogin>
@@ -71,6 +109,7 @@ function AddCoins() {
               </button>
             ))}
           </div>
+
           {(() => {
             const ins = mode === "add" ? cfg.instructions : cfg.deduct_instructions;
             const img = mode === "add" ? cfg.image_url : cfg.deduct_image_url;
@@ -81,6 +120,72 @@ function AddCoins() {
               </Card>
             ) : null;
           })()}
+
+          {/* Account Binding for Deduct */}
+          {mode === "deduct" && (
+            <Card className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="font-display font-bold">Withdrawal Account</h2>
+                {payoutAccount && (
+                  <span className="flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-bold text-emerald-600">
+                    <ShieldCheck className="h-3 w-3" /> Bound
+                  </span>
+                )}
+              </div>
+
+              {payoutAccount ? (
+                <div className="rounded-xl border border-primary/30 bg-primary/10 p-3 text-xs space-y-1">
+                  <div className="font-bold text-primary capitalize">{payoutAccount.method}</div>
+                  <div className="text-foreground font-semibold text-sm">{payoutAccount.account_name}</div>
+                  <div className="font-mono text-muted-foreground">{payoutAccount.account_number}</div>
+                  <p className="pt-1 text-[10px] text-muted-foreground">Account is permanently bound. Only Admin can unbind.</p>
+                </div>
+              ) : (
+                <div className="space-y-3 text-xs">
+                  <p className="text-[11px] text-muted-foreground">
+                    Bind your Easypaisa or JazzCash account once. All future withdrawals will go directly to this account.
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(["easypaisa", "jazzcash"] as const).map((m) => (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => setBindMethod(m)}
+                        className={cn(
+                          "rounded-xl border-2 py-2.5 font-bold capitalize transition",
+                          bindMethod === m ? "border-primary bg-primary/10 text-primary" : "border-border"
+                        )}
+                      >
+                        {m}
+                      </button>
+                    ))}
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-muted-foreground mb-1">Account Title / Full Name</label>
+                    <input
+                      value={bindName}
+                      onChange={(e) => setBindName(e.target.value)}
+                      placeholder="e.g. Muhammad Ali"
+                      className="h-10 w-full rounded-xl border border-input bg-background px-3 text-sm text-foreground outline-none focus:border-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-muted-foreground mb-1">Account / Mobile Number</label>
+                    <input
+                      value={bindNumber}
+                      onChange={(e) => setBindNumber(e.target.value)}
+                      placeholder="e.g. 03001234567"
+                      className="h-10 w-full rounded-xl border border-input bg-background px-3 text-sm text-foreground outline-none focus:border-primary"
+                    />
+                  </div>
+                  <PrimaryButton onClick={handleBind} loading={bindBusy}>
+                    Bind Account
+                  </PrimaryButton>
+                </div>
+              )}
+            </Card>
+          )}
+
           <Card className="space-y-4">
             <h2 className="font-display font-bold">{mode === "add" ? t("coins.choose") : t("coins.deduct_amount")}</h2>
             {mode === "add" && (
