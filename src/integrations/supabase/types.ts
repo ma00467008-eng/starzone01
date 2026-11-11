@@ -136,13 +136,10 @@ export type Database = {
       }
       coin_deductions: {
         Row: {
-          account_name: string | null
-          account_number: string | null
           admin_note: string | null
           amount: number
           created_at: string
           id: string
-          method: string | null
           note: string
           reviewed_at: string | null
           reviewed_by: string | null
@@ -150,13 +147,10 @@ export type Database = {
           user_id: string
         }
         Insert: {
-          account_name?: string | null
-          account_number?: string | null
           admin_note?: string | null
           amount: number
           created_at?: string
           id?: string
-          method?: string | null
           note: string
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -164,13 +158,10 @@ export type Database = {
           user_id: string
         }
         Update: {
-          account_name?: string | null
-          account_number?: string | null
           admin_note?: string | null
           amount?: number
           created_at?: string
           id?: string
-          method?: string | null
           note?: string
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -189,9 +180,7 @@ export type Database = {
           reviewed_at: string | null
           reviewed_by: string | null
           screenshot_path: string | null
-          source: string | null
           status: string
-          txn_id: string | null
           user_id: string
         }
         Insert: {
@@ -203,9 +192,7 @@ export type Database = {
           reviewed_at?: string | null
           reviewed_by?: string | null
           screenshot_path?: string | null
-          source?: string | null
           status?: string
-          txn_id?: string | null
           user_id: string
         }
         Update: {
@@ -217,9 +204,7 @@ export type Database = {
           reviewed_at?: string | null
           reviewed_by?: string | null
           screenshot_path?: string | null
-          source?: string | null
           status?: string
-          txn_id?: string | null
           user_id?: string
         }
         Relationships: []
@@ -600,30 +585,6 @@ export type Database = {
         }
         Relationships: []
       }
-      payout_accounts: {
-        Row: {
-          account_name: string
-          account_number: string
-          created_at: string
-          method: string
-          user_id: string
-        }
-        Insert: {
-          account_name: string
-          account_number: string
-          created_at?: string
-          method: string
-          user_id: string
-        }
-        Update: {
-          account_name?: string
-          account_number?: string
-          created_at?: string
-          method?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
       profiles: {
         Row: {
           avatar: number
@@ -639,8 +600,6 @@ export type Database = {
           status: string
           uid: string
           username: string
-          wager_done: number
-          wager_required: number
         }
         Insert: {
           avatar?: number
@@ -656,8 +615,6 @@ export type Database = {
           status?: string
           uid: string
           username: string
-          wager_done?: number
-          wager_required?: number
         }
         Update: {
           avatar?: number
@@ -673,8 +630,6 @@ export type Database = {
           status?: string
           uid?: string
           username?: string
-          wager_done?: number
-          wager_required?: number
         }
         Relationships: []
       }
@@ -974,11 +929,6 @@ export type Database = {
         Returns: undefined
       }
       admin_stats: { Args: never; Returns: Json }
-      admin_unbind_payout: { Args: { _user: string }; Returns: undefined }
-      bind_payout_account: {
-        Args: { _method: string; _name: string; _number: string }
-        Returns: Json
-      }
       chicken_cashout: { Args: { _session: string }; Returns: Json }
       chicken_start: {
         Args: { _difficulty: string; _stake: number }
@@ -992,7 +942,6 @@ export type Database = {
         Returns: Json
       }
       crash_start: { Args: { _auto: number; _stake: number }; Returns: Json }
-      fortune_gems_spin: { Args: { _stake: number }; Returns: Json }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -1020,13 +969,7 @@ export type Database = {
         Returns: Json
       }
       submit_coin_request: {
-        Args: {
-          _amount: number
-          _note: string
-          _screenshot: string
-          _source: string
-          _txn: string
-        }
+        Args: { _amount: number; _note: string; _screenshot?: string }
         Returns: Json
       }
       wingo_bet: {

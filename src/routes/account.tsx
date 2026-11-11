@@ -65,6 +65,10 @@ function AccountPage() {
             </Link>
           )}
 
+          <Link to="/earn" className="flex items-center gap-3 rounded-2xl bg-gradient-primary p-4 text-primary-foreground shadow-glow">
+            <span className="grid h-10 w-10 place-items-center rounded-xl bg-primary-foreground/20"><Users className="h-5 w-5" /></span>
+            <span className="flex-1 font-display font-bold">{t("acc.earn")}</span><ChevronRight className="h-4 w-4 rtl:rotate-180" />
+          </Link>
 
           <div className="divide-y divide-border overflow-hidden rounded-2xl bg-card shadow-card">
             {MENU.map(({ s, icon: Icon, k }) => (
