@@ -35,6 +35,8 @@ function AddCoins() {
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [shot, setShot] = useState<File | null>(null);
+  const [txn, setTxn] = useState("");
+  const [source, setSource] = useState<"easypaisa" | "jazzcash">("easypaisa");
   const qc = useQueryClient();
   const table = mode === "add" ? "coin_requests" : "coin_deductions";
   const { data: reqs } = useQuery({
@@ -51,7 +53,7 @@ function AddCoins() {
       try { path = await uploadFile(session.user.id, shot); } catch (e) { setBusy(false); toast.error(errMsg(e)); return; }
     }
     const { error } = mode === "add"
-      ? await supabase.rpc("submit_coin_request", { _amount: amount, _note: note, ...(path ? { _screenshot: path } : {}) })
+      ? await supabase.rpc("submit_coin_request", { _amount: amount, _note: note, _screenshot: path ?? "", _txn: txn, _source: source })
       : await supabase.rpc("submit_coin_deduction", { _amount: amount, _note: note });
     setBusy(false);
     if (error) { toast.error(errMsg(error)); return; }
@@ -94,6 +96,16 @@ function AddCoins() {
             <label className="block text-xs text-muted-foreground">{mode === "add" ? t("coins.instructions") : t("deduct.instructions")} <span className="text-destructive">*</span>
               <textarea value={note} required maxLength={300} onChange={(e) => setNote(e.target.value)} rows={3} placeholder={mode === "add" ? t("coins.instructions_ph") : t("deduct.instructions_ph")} className="mt-1 w-full rounded-xl border border-input bg-background p-3 text-sm text-foreground outline-none focus:border-primary" />
             </label>
+            {mode === "add" && (
+              <div className="space-y-2 text-xs text-muted-foreground">
+                <div className="grid grid-cols-2 gap-2">
+                  {(["easypaisa", "jazzcash"] as const).map((s) => (
+                    <button key={s} type="button" onClick={() => setSource(s)} className={cn("rounded-xl border-2 py-2.5 font-bold", source === s ? "border-primary bg-secondary text-primary-deep" : "border-border")}>{s === "easypaisa" ? "Easypaisa" : "JazzCash"}</button>
+                  ))}
+                </div>
+                <input value={txn} onChange={(e) => setTxn(e.target.value)} placeholder="Transaction ID" className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm text-foreground outline-none focus:border-primary" />
+              </div>
+            )}
             {mode === "add" && (
               <div className="text-xs text-muted-foreground">{t("coins.screenshot")}
                 {shot ? (

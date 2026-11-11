@@ -78,6 +78,13 @@
       "when": 1793854219588,
       "tag": "0010_coins_fix_house_edge_reset",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1793942448266,
+      "tag": "0011_wallet_binding_wager_fortune_gems",
+      "breakpoints": true
     }
   ]
 }
