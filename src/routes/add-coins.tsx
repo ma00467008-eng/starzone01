@@ -32,7 +32,7 @@ function AddCoins() {
   const { mode: initialMode } = Route.useSearch();
   const [mode, setMode] = useState<"add" | "deduct">(initialMode);
   const [amount, setAmount] = useState(amounts[0] ?? min);
-  const [note, setNote] = useState("");
+  const [note, setNote] = useState("Request");
   const [busy, setBusy] = useState(false);
   const [shot, setShot] = useState<File | null>(null);
   const [txn, setTxn] = useState("");
@@ -83,7 +83,6 @@ function AddCoins() {
       toast.error("Please bind your Easypaisa or JazzCash account first");
       return;
     }
-    if (note.trim().length < 3) { toast.error(t("coins.instructions_required")); return; }
     setBusy(true);
     let path: string | undefined;
     if (mode === "add" && shot && session) {
@@ -197,9 +196,6 @@ function AddCoins() {
             )}
             <label className="block text-xs text-muted-foreground">{mode === "add" ? `${t("coins.custom")} (${fmt(min)} – ${fmt(max)})` : `${t("coins.amount")}${profile?.balance != null ? ` (${t("coins.balance_label")} ${fmt(profile.balance)})` : ""}`}
               <input type="number" value={amount} min={1} onChange={(e) => setAmount(Number(e.target.value))} className="mt-1 h-11 w-full rounded-xl border border-input bg-background px-3 text-base font-bold text-foreground outline-none focus:border-primary" />
-            </label>
-            <label className="block text-xs text-muted-foreground">{mode === "add" ? t("coins.instructions") : t("deduct.instructions")} <span className="text-destructive">*</span>
-              <textarea value={note} required maxLength={300} onChange={(e) => setNote(e.target.value)} rows={3} placeholder={mode === "add" ? t("coins.instructions_ph") : t("deduct.instructions_ph")} className="mt-1 w-full rounded-xl border border-input bg-background p-3 text-sm text-foreground outline-none focus:border-primary" />
             </label>
             {mode === "add" && (
               <div className="space-y-2 text-xs text-muted-foreground">
