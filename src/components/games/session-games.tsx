@@ -31,7 +31,7 @@ export function CrashGame({ game }: { game: GameRow }) {
 
   const check = async (manual: boolean) => {
     if (!sidRef.current) return;
-    const { data } = await supabase.from("sessions").select("status, multiplier, payout").eq("id", sidRef.current).maybeSingle();
+    const { data } = await (supabase as any).from("sessions").select("status, multiplier, payout").eq("id", sidRef.current).maybeSingle();
     if (!data) return;
     if (data.status === "crashed") {
       sidRef.current = null;
@@ -46,14 +46,14 @@ export function CrashGame({ game }: { game: GameRow }) {
       setMult(Number(data.multiplier) || 1);
       beep("win");
       toast.success(`${t("game.cashed_out")} ${fmt(Number(data.payout))}`);
-      after.mutate();
+      after();
     }
   };
 
   const play = async () => {
     setBusy(true);
     try {
-      const { data, error } = await supabase.rpc("play_crash_start", {
+      const { data, error } = await (supabase as any).rpc("play_crash_start", {
         p_stake: stake,
         p_auto: auto ? parseFloat(auto) : null,
       });
@@ -63,8 +63,8 @@ export function CrashGame({ game }: { game: GameRow }) {
       start.current = Date.now();
       setState("flying");
       setMult(1);
-      beep("start");
-      after.mutate();
+      beep("bet");
+      after();
     } catch (e) {
       toast.error(errMsg(e));
     } finally {
@@ -76,14 +76,14 @@ export function CrashGame({ game }: { game: GameRow }) {
     if (!sid) return;
     setBusy(true);
     try {
-      const { data, error } = await supabase.rpc("play_crash_cash", { p_sid: sid });
+      const { data, error } = await (supabase as any).rpc("play_crash_cash", { p_sid: sid });
       if (error) throw error;
       sidRef.current = null;
       setState("cashed");
       setMult(Number(data.multiplier));
       beep("win");
       toast.success(`${t("game.cashed_out")} ${fmt(Number(data.payout))}`);
-      after.mutate();
+      after();
     } catch (e) {
       toast.error(errMsg(e));
     } finally {
@@ -130,22 +130,22 @@ export function MinesGame({ game }: { game: GameRow }) {
 
   const start = async () => {
     try {
-      const { data, error } = await supabase.rpc("play_mines_start", { p_stake: stake, p_mines: mines });
+      const { data, error } = await (supabase as any).rpc("play_mines_start", { p_stake: stake, p_mines: mines });
       if (error) throw error;
       setSid(data.session_id);
       setActive(true);
       setRevealed([]);
       setHit(null);
       setPayout(0);
-      beep("start");
-      after.mutate();
+      beep("bet");
+      after();
     } catch (e) { toast.error(errMsg(e)); }
   };
 
   const pick = async (tile: number) => {
     if (!sid || !active || revealed.includes(tile)) return;
     try {
-      const { data, error } = await supabase.rpc("play_mines_pick", { p_sid: sid, p_tile: tile });
+      const { data, error } = await (supabase as any).rpc("play_mines_pick", { p_sid: sid, p_tile: tile });
       if (error) throw error;
       setRevealed((r) => [...r, tile]);
       if (data.status === "exploded") {
@@ -160,7 +160,7 @@ export function MinesGame({ game }: { game: GameRow }) {
           setActive(false);
           beep("win");
           toast.success(t("game.all_cleared"));
-          after.mutate();
+          after();
         }
       }
     } catch (e) { toast.error(errMsg(e)); }
@@ -169,12 +169,12 @@ export function MinesGame({ game }: { game: GameRow }) {
   const cash = async () => {
     if (!sid || !active) return;
     try {
-      const { error } = await supabase.rpc("play_mines_cash", { p_sid: sid });
+      const { error } = await (supabase as any).rpc("play_mines_cash", { p_sid: sid });
       if (error) throw error;
       setActive(false);
       beep("win");
       toast.success(`${t("game.cashed_out")} ${fmt(payout)}`);
-      after.mutate();
+      after();
     } catch (e) { toast.error(errMsg(e)); }
   };
 
