@@ -21,6 +21,175 @@ const colorBg: Record<string, string> = { red: "bg-game-red", green: "bg-game-gr
 type Hist = { period: string; raw: number; number: number; hash: string };
 type Sel = { kind: "number" | "size" | "color"; value: string } | null;
 
+export type WinGoOutcome = {
+  win: boolean;
+  amount: number;
+  periodId: string;
+  durationLabel: string;
+  winningNumber: number;
+};
+
+export function calculateBetOutcome(b: any, n: number): { win: boolean; payout: number; mult: number } {
+  let win = false;
+  let mult = 0;
+
+  if (b.kind === "number") {
+    if (Number(b.value) === n) {
+      win = true;
+      mult = 8.82;
+    }
+  } else if (b.kind === "size") {
+    if ((b.value === "big" && n >= 5) || (b.value === "small" && n < 5)) {
+      win = true;
+      mult = 1.96;
+    }
+  } else if (b.kind === "color") {
+    if (b.value === "violet") {
+      if (n === 0 || n === 5) {
+        win = true;
+        mult = 4.41;
+      }
+    } else if (b.value === "green") {
+      if (n === 5) {
+        win = true;
+        mult = 1.47;
+      } else if (n % 2 === 1) {
+        win = true;
+        mult = 1.96;
+      }
+    } else if (b.value === "red") {
+      if (n === 0) {
+        win = true;
+        mult = 1.47;
+      } else if (n % 2 === 0) {
+        win = true;
+        mult = 1.96;
+      }
+    }
+  }
+
+  const payout = win ? Math.floor(b.stake * mult) : 0;
+  return { win, payout, mult };
+}
+
+export function WinGoResultPopup({
+  outcome,
+  onClose,
+}: {
+  outcome: WinGoOutcome | null;
+  onClose: () => void;
+}) {
+  if (!outcome) return null;
+
+  const { win, amount, periodId, durationLabel, winningNumber } = outcome;
+  const isBig = winningNumber >= 5;
+  const colors = numColors(winningNumber);
+  const primaryColor = colors[0] ?? (winningNumber % 2 === 0 ? "red" : "green");
+
+  const colorBgHex: Record<string, string> = {
+    green: "#28a745",
+    red: "#dc3545",
+    violet: "#6f42c1",
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-[1000] flex items-center justify-center p-4 backdrop-blur-[2px] transition-all"
+      style={{ backgroundColor: "rgba(0, 0, 0, 0.65)" }}
+      onClick={onClose}
+    >
+      <div
+        className="w-[310px] max-w-[92vw] rounded-[18px] px-5 py-6 text-center animate-pop"
+        style={{
+          boxShadow: "0 12px 30px rgba(0, 0, 0, 0.25)",
+          background: win
+            ? "linear-gradient(180deg, #ff9a44 0%, #ff6a00 35%, #ffffff 35%)"
+            : "linear-gradient(180deg, #6c7a89 0%, #95a5a6 35%, #ffffff 35%)",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="text-[55px] leading-none mb-1 select-none">
+          {win ? "🏆" : "😔"}
+        </div>
+        <div
+          className="text-2xl font-bold text-white mt-1 mb-6"
+          style={{ textShadow: "0 1px 3px rgba(0, 0, 0, 0.2)" }}
+        >
+          {win ? "Congratulations" : "Sorry"}
+        </div>
+
+        <div
+          className="rounded-xl p-3 my-3.5 text-[13px] text-[#555] font-sans"
+          style={{ background: "#f8f9fa", border: "1px solid #e9ecef" }}
+        >
+          <div className="font-semibold text-gray-700">Lottery Results</div>
+          <div className="mt-2 flex justify-center items-center gap-1.5 flex-wrap">
+            {colors.map((c) => (
+              <span
+                key={c}
+                className="px-3 py-1 rounded-xl text-white font-bold text-[13px] capitalize leading-tight"
+                style={{ backgroundColor: colorBgHex[c] || "#28a745" }}
+              >
+                {c}
+              </span>
+            ))}
+            <span
+              className="px-3 py-1 rounded-xl text-white font-bold text-[13px] leading-tight"
+              style={{ backgroundColor: colorBgHex[primaryColor] || "#28a745" }}
+            >
+              {winningNumber}
+            </span>
+            <span
+              className="px-3 py-1 rounded-xl text-white font-bold text-[13px] leading-tight"
+              style={{ backgroundColor: colorBgHex[primaryColor] || "#28a745" }}
+            >
+              {isBig ? "Big" : "Small"}
+            </span>
+          </div>
+        </div>
+
+        <div
+          className="rounded-xl p-3 my-3.5"
+          style={{ background: win ? "#fff3e0" : "#f1f3f5" }}
+        >
+          <div
+            className="text-sm font-bold uppercase tracking-wide"
+            style={{ color: win ? "#ff6a00" : "#6c757d" }}
+          >
+            {win ? "Bonus" : "Result"}
+          </div>
+          <div
+            className="font-bold mt-1 tabular-nums"
+            style={{
+              fontSize: win ? "24px" : "22px",
+              color: win ? "#e65100" : "#495057",
+            }}
+          >
+            {win ? fmt(amount) : "Lose"}
+          </div>
+        </div>
+
+        <div className="text-xs text-[#888] mb-4">
+          Period: {durationLabel} {periodId}
+        </div>
+
+        <button
+          className="w-full text-white border-none py-[11px] px-[30px] rounded-[25px] text-base font-bold cursor-pointer transition hover:opacity-95 active:scale-[0.98] shadow-sm"
+          style={{
+            background: win
+              ? "linear-gradient(90deg, #ff9a44, #ff6a00)"
+              : "#6c7a89",
+          }}
+          onClick={onClose}
+        >
+          Close
+        </button>
+      </div>
+    </div>
+  );
+}
+
+
 const BASES = [1, 10, 100, 1000];
 const MULTS = [1, 5, 10, 20, 50, 100];
 
@@ -60,6 +229,21 @@ export function formatGlobalPeriod(rawPeriod: number, duration: number): string 
 /**
  * Normalizes any stored bet period to display consistently
  */
+export function parseIssueRaw(issueNumber: string, duration: number): number | null {
+  if (!issueNumber || issueNumber.length < 17) return null;
+  try {
+    const yyyy = parseInt(issueNumber.slice(0, 4), 10);
+    const mm = parseInt(issueNumber.slice(4, 6), 10) - 1;
+    const dd = parseInt(issueNumber.slice(6, 8), 10);
+    const roundOfDay = parseInt(issueNumber.slice(13), 10);
+    const startOfDay = Date.UTC(yyyy, mm, dd);
+    const epochSeconds = Math.floor(startOfDay / 1000) + (roundOfDay - 1) * duration;
+    return Math.floor(epochSeconds / duration);
+  } catch {
+    return null;
+  }
+}
+
 export function formatBetPeriod(p: any, duration: number): string {
   if (!p) return "";
   const s = String(p).trim();
@@ -89,7 +273,7 @@ export function WingoGame({ game }: { game: GameRow }) {
   const [qty, setQty] = useState(Math.max(1, Math.ceil(game.min_stake / 10)));
   const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState<"hist" | "chart" | "mine">("hist");
-  const [outcome, setOutcome] = useState<Outcome | null>(null);
+  const [outcome, setOutcome] = useState<WinGoOutcome | null>(null);
 
   // Pagination (10 results per page, up to 50 results / 5 pages)
   const [page, setPage] = useState<number>(1);
@@ -131,12 +315,32 @@ export function WingoGame({ game }: { game: GameRow }) {
             const json = await res.json();
             const list = json?.data?.list ?? [];
             if (Array.isArray(list) && list.length > 0) {
-              return list.map((item: any, idx: number) => ({
-                period: String(item.issueNumber),
-                raw: period - 1 - idx,
-                number: Number(item.number),
-                hash: String(item.premium ?? ""),
-              })) as Hist[];
+              const mapped = list.map((item: any, idx: number) => {
+                const issueStr = String(item.issueNumber);
+                const parsedRaw = parseIssueRaw(issueStr, dur);
+                return {
+                  period: issueStr,
+                  raw: parsedRaw ?? (period - 1 - idx),
+                  number: Number(item.number),
+                  hash: String(item.premium ?? ""),
+                };
+              }) as Hist[];
+
+              if (session && mapped.length > 0) {
+                const syncItems = mapped.slice(0, 10).map((m) => ({
+                  period: m.raw,
+                  number: m.number,
+                }));
+                Promise.resolve(
+                  (supabase.rpc as any)("wingo_record_results", {
+                    _game: game.slug,
+                    _duration: dur,
+                    _items: syncItems,
+                  })
+                ).catch(() => {});
+              }
+
+              return mapped;
             }
           }
         }
@@ -213,28 +417,133 @@ export function WingoGame({ game }: { game: GameRow }) {
 
   useEffect(() => {
     if (lastPeriod.current !== null && lastPeriod.current !== period) {
-      refetchHist();
+      const endedPeriod = lastPeriod.current;
+      const endedDur = dur;
+      const endedCode = formatGlobalPeriod(endedPeriod, endedDur);
+
       if (session) {
-        const prevDur = dur;
-        setTimeout(() => {
-          supabase.rpc("wingo_settle").then(async ({ data }) => {
-            const r = data as { settled: number; won: number; balance: number } | null;
-            if (!r?.settled) return;
-            after(r.balance);
+        let attempts = 0;
+        const maxAttempts = 10;
+
+        const checkAndSettle = async () => {
+          attempts++;
+          const hist = await refetchHist();
+          const items = hist.data ?? [];
+          const match =
+            items.find((h) => h.period === endedCode || h.raw === endedPeriod) ??
+            (accumulatedHist ?? []).find((h) => h.period === endedCode || h.raw === endedPeriod);
+
+          if (match && typeof match.number === "number") {
+            const payload = [
+              {
+                game: game.slug,
+                duration: endedDur,
+                period: endedPeriod,
+                number: match.number,
+              },
+            ];
+
+            try {
+              await (supabase.rpc as any)("wingo_record_results", {
+                _game: game.slug,
+                _duration: endedDur,
+                _items: payload,
+              });
+            } catch {}
+
+            let res: any = null;
+            try {
+              const { data } = await (supabase.rpc as any)("wingo_settle", { _results: payload });
+              res = data;
+            } catch {
+              const { data } = await supabase.rpc("wingo_settle");
+              res = data;
+            }
+
+            const r = res as { settled: number; won: number; balance: number } | null;
+            if (r?.balance != null) {
+              after(r.balance);
+            }
             qc.invalidateQueries({ queryKey: ["wingo-bets", game.slug] });
-            const last = accumulatedHist?.[0] ?? feedItems?.[0];
-            setOutcome({
-              win: r.won > 0,
-              amount: r.won,
-              round: last ? last.period : formatGlobalPeriod(period - 1, prevDur),
-              detail: last ? <ResultChips n={last.number} /> : undefined,
+
+            // Check if user had any bets placed on this round
+            const betsRes = await supabase
+              .from("wingo_bets")
+              .select("*")
+              .eq("game", game.slug)
+              .order("created_at", { ascending: false })
+              .limit(20);
+
+            const roundBets = (betsRes.data ?? myBets ?? []).filter((b: any) => {
+              const bPeriodStr = String(b.period).trim();
+              return (
+                Number(b.period) === endedPeriod ||
+                bPeriodStr === String(endedPeriod) ||
+                formatBetPeriod(b.period, b.duration || endedDur) === endedCode
+              );
             });
-          });
-        }, 700);
+
+            const hadBet = roundBets.length > 0 || (r != null && r.settled > 0);
+
+            if (hadBet) {
+              let isWin = r ? r.won > 0 : false;
+              let winAmount = r?.won ?? 0;
+
+              if (roundBets.length > 0) {
+                let calcWin = false;
+                let calcPayout = 0;
+                for (const b of roundBets) {
+                  const evalRes = calculateBetOutcome(b, match.number);
+                  if (evalRes.win) {
+                    calcWin = true;
+                    calcPayout += evalRes.payout;
+                  }
+                }
+                if (calcWin) {
+                  isWin = true;
+                  winAmount = Math.max(winAmount, calcPayout);
+                }
+              }
+
+              setOutcome({
+                win: isWin,
+                amount: winAmount,
+                periodId: endedCode,
+                durationLabel: label(endedDur),
+                winningNumber: match.number,
+              });
+              beep(isWin ? "win" : "lose");
+            }
+          } else if (attempts < maxAttempts) {
+            setTimeout(checkAndSettle, 1200);
+          } else {
+            try {
+              const { data } = await supabase.rpc("wingo_settle");
+              const r = data as { settled: number; won: number; balance: number } | null;
+              if (r?.settled) {
+                after(r.balance);
+                qc.invalidateQueries({ queryKey: ["wingo-bets", game.slug] });
+                const latest = items[0] ?? accumulatedHist[0];
+                const winningNum = latest?.number ?? 0;
+                const isWin = r.won > 0;
+                setOutcome({
+                  win: isWin,
+                  amount: r.won,
+                  periodId: endedCode,
+                  durationLabel: label(endedDur),
+                  winningNumber: winningNum,
+                });
+                beep(isWin ? "win" : "lose");
+              }
+            } catch {}
+          }
+        };
+
+        setTimeout(checkAndSettle, 1200);
       }
     }
     lastPeriod.current = period;
-  }, [period, session, accumulatedHist, feedItems]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [period, session, dur, game.slug, accumulatedHist]);
 
   useEffect(() => {
     if (session) {
@@ -641,47 +950,9 @@ export function WingoGame({ game }: { game: GameRow }) {
                 let calculatedPayout = 0;
 
                 if (histMatch != null && typeof histMatch.number === "number") {
-                  const n = histMatch.number;
-                  let win = false;
-                  let mult = 0;
-
-                  if (b.kind === "number") {
-                    if (Number(b.value) === n) {
-                      win = true;
-                      mult = 8.82;
-                    }
-                  } else if (b.kind === "size") {
-                    if ((b.value === "big" && n >= 5) || (b.value === "small" && n < 5)) {
-                      win = true;
-                      mult = 1.96;
-                    }
-                  } else if (b.kind === "color") {
-                    if (b.value === "violet") {
-                      if (n === 0 || n === 5) {
-                        win = true;
-                        mult = 4.41;
-                      }
-                    } else if (b.value === "green") {
-                      if (n === 5) {
-                        win = true;
-                        mult = 1.47;
-                      } else if (n % 2 === 1) {
-                        win = true;
-                        mult = 1.96;
-                      }
-                    } else if (b.value === "red") {
-                      if (n === 0) {
-                        win = true;
-                        mult = 1.47;
-                      } else if (n % 2 === 0) {
-                        win = true;
-                        mult = 1.96;
-                      }
-                    }
-                  }
-
-                  calculatedWin = win;
-                  calculatedPayout = win ? Math.floor(b.stake * mult) : 0;
+                  const evalRes = calculateBetOutcome(b, histMatch.number);
+                  calculatedWin = evalRes.win;
+                  calculatedPayout = evalRes.payout;
                 }
 
                 const isSettled = Boolean(
@@ -839,7 +1110,7 @@ export function WingoGame({ game }: { game: GameRow }) {
         </SheetContent>
       </Sheet>
 
-      <ResultPopup outcome={outcome} onClose={() => setOutcome(null)} />
+      <WinGoResultPopup outcome={outcome} onClose={() => setOutcome(null)} />
     </div>
   );
 }
