@@ -471,12 +471,14 @@ export function WingoGame({ game }: { game: GameRow }) {
             qc.invalidateQueries({ queryKey: ["wingo-bets", game.slug] });
 
             // Check if user had any bets placed on this round
-            const betsRes = await supabase
+                       const betsRes = await supabase
               .from("wingo_bets")
               .select("*")
               .eq("game", game.slug)
+              .eq("user_id", session.user.id)
               .order("created_at", { ascending: false })
               .limit(20);
+
 
             const roundBets = (betsRes.data ?? myBets ?? []).filter((b: any) => {
               const bPeriodStr = String(b.period).trim();
