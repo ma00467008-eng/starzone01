@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Bomb, Gem, Minus, Plus, Zap } from "lucide-react";
+import { Bomb, Gem, Minus, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useApp, errMsg } from "@/lib/app-context";
 import { beep, fmt } from "@/lib/sound";
@@ -32,42 +32,29 @@ function RedAviatorPlane({ crashed }: { crashed?: boolean }) {
           </radialGradient>
         </defs>
 
-        {/* Jet exhaust smoke / glow */}
         <ellipse cx="6" cy="33" rx="10" ry="4" fill="url(#exhaustGlow)" className="animate-pulse" />
-
-        {/* Aerodynamic Fuselage */}
         <path
           d="M14 31 Q45 22 92 27 Q114 29 122 33 Q114 37 92 39 Q45 44 14 35 Z"
           fill="url(#bodyRed)"
         />
-
-        {/* Glass Cockpit Canopy */}
         <path
           d="M62 26 Q74 19 88 26 Q74 29 62 26 Z"
           fill="#38bdf8"
           opacity="0.9"
         />
-
-        {/* Main Lower Wing */}
         <path
           d="M52 32 L26 52 Q30 55 42 51 L70 35 Z"
           fill="url(#wingRed)"
         />
-
-        {/* Upper Wing */}
         <path
           d="M56 29 L42 12 Q48 10 56 13 L68 28 Z"
           fill="url(#wingRed)"
           opacity="0.95"
         />
-
-        {/* Tail Fin */}
         <path
           d="M15 32 L3 13 Q9 11 18 18 L20 32 Z"
           fill="#b91c1c"
         />
-
-        {/* Propeller Hub & Yellow Tip */}
         <ellipse cx="122" cy="33" rx="3.5" ry="4" fill="#f59e0b" />
         <line
           x1="122"
@@ -84,35 +71,143 @@ function RedAviatorPlane({ crashed }: { crashed?: boolean }) {
   );
 }
 
-/* ---------------- Aviator (Sky Crash) ---------------- */
+/* ---------------- Aviator Continuous Loop ---------------- */
 export function CrashGame({ game }: { game: GameRow }) {
   const { t } = useApp();
   const after = useAfterPlay(game.slug);
 
   const [stake, setStake] = useState(game.min_stake);
   const [auto, setAuto] = useState("");
-  const [sid, setSid] = useState<string | null>(null);
   const [mult, setMult] = useState(1);
-  const [state, setState] = useState<"idle" | "flying" | "crashed" | "cashed">("idle");
-  const [busy, setBusy] = useState(false);
-  const [past, setPast] = useState<number[]>([1.42, 2.15, 1.12, 5.84, 1.95, 12.4, 1.28, 3.42, 1.05]);
+  const [past, setPast] = useState<number[]>([1.35, 2.14, 1.12, 6.42, 1.88, 14.2, 1.25, 3.8]);
 
-  const start = useRef(0);
+  // Round states: "betting" (5s countdown) | "flying" | "crashed"
+  const [phase, setPhase] = useState<"betting" | "flying" | "crashed">("betting");
+  const [countdown, setCountdown] = useState(5.0);
+
+  // User betting state
+  const [betPlaced, setBetPlaced] = useState(false);
+  const [queuedForNext, setQueuedForNext] = useState(false);
+  const [hasCashedOut, setHasCashedOut] = useState(false);
+  const [sid, setSid] = useState<string | null>(null);
+
+  const startRef = useRef(0);
   const sidRef = useRef<string | null>(null);
+  const simCrashRef = useRef(2.0);
+  const stakeRef = useRef(stake);
+  stakeRef.current = stake;
+  const autoRef = useRef(auto);
+  autoRef.current = auto;
+  const betPlacedRef = useRef(betPlaced);
+  betPlacedRef.current = betPlaced;
 
+  // 1. Continuous round loop manager
   useEffect(() => {
-    if (state !== "flying") return;
+    let timer: NodeJS.Timeout;
+
+    if (phase === "betting") {
+      setCountdown(5.0);
+      setMult(1);
+      setHasCashedOut(false);
+
+      // If user queued bet from previous flight, activate it now
+      if (queuedForNext) {
+        setBetPlaced(true);
+        setQueuedForNext(false);
+      }
+
+      const startTime = Date.now();
+      const tick = setInterval(() => {
+        const remaining = Math.max(0, 5.0 - (Date.now() - startTime) / 1000);
+        setCountdown(remaining);
+        if (remaining <= 0) {
+          clearInterval(tick);
+          launchFlight();
+        }
+      }, 50);
+
+      return () => clearInterval(tick);
+    }
+
+    if (phase === "crashed") {
+      // Show FLEW AWAY for 2.5s, then start next 5-second countdown
+      timer = setTimeout(() => {
+        setPhase("betting");
+      }, 2500);
+      return () => clearTimeout(timer);
+    }
+  }, [phase, queuedForNext]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Launch the plane automatically after 5s
+  const launchFlight = async () => {
+    startRef.current = Date.now();
+    setPhase("flying");
+    beep("takeoff");
+
+    // Standard crash multiplier for spectator simulation (3% house edge)
+    const rand = Math.random();
+    const simulated = Math.max(1.0, Math.floor(((1 / (1 - rand)) * 0.97) * 100) / 100);
+    simCrashRef.current = simulated;
+
+    if (betPlacedRef.current) {
+      const a = autoRef.current ? Number(autoRef.current) : null;
+      const { data, error } = await supabase.rpc("crash_start", {
+        _stake: stakeRef.current,
+        _auto: a as number,
+      });
+
+      if (error) {
+        toast.error(errMsg(error));
+        setBetPlaced(false);
+      } else {
+        const r = data as { session: string; balance: number };
+        after(r.balance);
+        sidRef.current = r.session;
+        setSid(r.session);
+      }
+    }
+  };
+
+  // 2. Flight animation and polling
+  useEffect(() => {
+    if (phase !== "flying") return;
+
     const anim = setInterval(() => {
-      const elapsed = (Date.now() - start.current) / 1000;
-      setMult(Math.floor(Math.exp(0.09 * elapsed) * 100) / 100);
+      const elapsed = (Date.now() - startRef.current) / 1000;
+      const current = Math.floor(Math.exp(0.09 * elapsed) * 100) / 100;
+      setMult(current);
+
+      // Check auto cashout
+      const targetAuto = Number(autoRef.current);
+      if (targetAuto && current >= targetAuto && betPlacedRef.current && !hasCashedOut && sidRef.current) {
+        check(true);
+      }
+
+      // If playing as spectator (or server delay), trigger crash at simulated point
+      if (!sidRef.current && current >= simCrashRef.current) {
+        triggerCrash(simCrashRef.current);
+      }
     }, 40);
 
-    const poll = setInterval(() => check(false), 380);
+    const poll = setInterval(() => {
+      if (sidRef.current) check(false);
+    }, 380);
+
     return () => {
       clearInterval(anim);
       clearInterval(poll);
     };
-  }, [state]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [phase, hasCashedOut]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const triggerCrash = (crashVal: number) => {
+    setPhase("crashed");
+    setMult(crashVal);
+    beep("explode");
+    setPast((p) => [crashVal, ...p].slice(0, 20));
+    setBetPlaced(false);
+    setSid(null);
+    sidRef.current = null;
+  };
 
   const settle = (r: any) => {
     sidRef.current = null;
@@ -120,19 +215,14 @@ export function CrashGame({ game }: { game: GameRow }) {
     after(r.balance as number);
 
     if (r.crashed && !(Number(r.payout) > 0)) {
-      setState("crashed");
-      const finalVal = Number(r.crash ?? r.multiplier ?? mult);
-      setMult(finalVal);
-      beep("explode");
-      setPast((p) => [finalVal, ...p].slice(0, 20));
+      triggerCrash(Number(r.crash ?? r.multiplier ?? mult));
     } else {
-      setState("cashed");
-      const finalVal = Number(r.multiplier ?? r.cashout ?? mult);
-      setMult(finalVal);
+      setHasCashedOut(true);
+      const cashMult = Number(r.multiplier ?? r.cashout ?? mult);
       beep("cashout");
       toast.success(`${t("game.win")} +${fmt(Number(r.payout))}`);
       if (r.crash) {
-        setPast((p) => [Number(r.crash), ...p].slice(0, 20));
+        triggerCrash(Number(r.crash));
       }
     }
   };
@@ -159,39 +249,14 @@ export function CrashGame({ game }: { game: GameRow }) {
     }
   };
 
-  const launch = async () => {
-    setBusy(true);
-    const a = auto ? Number(auto) : null;
-    const { data, error } = await supabase.rpc("crash_start", {
-      _stake: stake,
-      _auto: a as number,
-    });
-    setBusy(false);
-
-    if (error) {
-      toast.error(errMsg(error));
-      return;
-    }
-
-    const r = data as { session: string; balance: number };
-    after(r.balance);
-    beep("takeoff");
-
-    sidRef.current = r.session;
-    setSid(r.session);
-    start.current = Date.now();
-    setMult(1);
-    setState("flying");
-  };
-
-  // Trajectory progress (0 to 1)
+  // Trajectory coordinates
   const pct = Math.min(1, Math.max(0.05, Math.log(mult) / Math.log(12)));
   const planeX = 6 + pct * 74;
   const planeY = 8 + pct * 65;
 
   return (
     <div className="space-y-3 font-sans">
-      {/* Top Round History Strip (Authentic Aviator Styling) */}
+      {/* Top Round History Strip */}
       <div className="flex items-center gap-1.5 overflow-x-auto rounded-xl border border-white/5 bg-[#0e131b] px-2 py-1.5 no-scrollbar shadow-inner">
         <span className="text-[10px] font-black uppercase tracking-widest text-white/40 mr-1 shrink-0">
           History
@@ -229,7 +294,17 @@ export function CrashGame({ game }: { game: GameRow }) {
           }}
         />
 
-        {/* Red Glowing Flight Curve Canvas/SVG */}
+        {/* 5-Second Red Progress Bar between rounds */}
+        {phase === "betting" && (
+          <div className="absolute top-0 inset-x-0 h-1.5 bg-white/10 overflow-hidden">
+            <div
+              className="h-full bg-rose-500 transition-all duration-75 ease-linear shadow-[0_0_10px_#ef4444]"
+              style={{ width: `${(countdown / 5.0) * 100}%` }}
+            />
+          </div>
+        )}
+
+        {/* Red Glowing Flight Curve Canvas */}
         <svg
           viewBox="0 0 100 65"
           className="absolute inset-0 h-full w-full pointer-events-none"
@@ -242,14 +317,12 @@ export function CrashGame({ game }: { game: GameRow }) {
             </linearGradient>
           </defs>
 
-          {state !== "idle" && (
+          {phase === "flying" && (
             <>
-              {/* Fill below the curve */}
               <path
                 d={`M 0 65 Q ${planeX * 0.55} 65 ${planeX} ${65 - planeY} L ${planeX} 65 Z`}
                 fill="url(#flightGradient)"
               />
-              {/* Main glowing red curve line */}
               <path
                 d={`M 0 65 Q ${planeX * 0.55} 65 ${planeX} ${65 - planeY}`}
                 stroke="#ef4444"
@@ -263,7 +336,7 @@ export function CrashGame({ game }: { game: GameRow }) {
         </svg>
 
         {/* The Animated Red Aviator Plane */}
-        {state !== "idle" && (
+        {phase === "flying" && (
           <div
             className="absolute transition-all duration-75 pointer-events-none"
             style={{
@@ -272,13 +345,13 @@ export function CrashGame({ game }: { game: GameRow }) {
               transform: `translate(-50%, 50%) rotate(${Math.min(22, 5 + pct * 20)}deg)`,
             }}
           >
-            <RedAviatorPlane crashed={state === "crashed"} />
+            <RedAviatorPlane crashed={phase === "crashed"} />
           </div>
         )}
 
         {/* Center Multiplier & Status Display */}
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center select-none">
-          {state === "crashed" ? (
+          {phase === "crashed" ? (
             <div className="animate-in fade-in zoom-in duration-200">
               <div className="font-display text-4xl sm:text-6xl font-black text-rose-500 drop-shadow-[0_0_20px_rgba(244,63,94,0.8)]">
                 {mult.toFixed(2)}x
@@ -287,30 +360,32 @@ export function CrashGame({ game }: { game: GameRow }) {
                 FLEW AWAY!
               </div>
             </div>
-          ) : state === "cashed" ? (
-            <div className="animate-in fade-in zoom-in duration-200">
-              <div className="font-display text-4xl sm:text-6xl font-black text-emerald-400 drop-shadow-[0_0_20px_rgba(52,211,153,0.8)]">
-                {mult.toFixed(2)}x
-              </div>
-              <div className="mt-1 font-display text-xs sm:text-sm font-black uppercase tracking-wider text-emerald-300">
-                CASHED OUT SUCCESSFULLY
-              </div>
-            </div>
-          ) : state === "flying" ? (
+          ) : phase === "flying" ? (
             <div>
-              <div className="font-display text-5xl sm:text-7xl font-black tracking-tight text-white drop-shadow-[0_4px_16px_rgba(0,0,0,0.8)]">
-                {mult.toFixed(2)}
-                <span className="text-rose-500">x</span>
-              </div>
+              {hasCashedOut ? (
+                <div className="animate-in fade-in duration-150">
+                  <div className="font-display text-4xl sm:text-6xl font-black text-emerald-400">
+                    {mult.toFixed(2)}x
+                  </div>
+                  <div className="text-xs font-black uppercase text-emerald-300">
+                    CASHED OUT ₨{fmt(Math.floor(stake * mult))}
+                  </div>
+                </div>
+              ) : (
+                <div className="font-display text-5xl sm:text-7xl font-black tracking-tight text-white drop-shadow-[0_4px_16px_rgba(0,0,0,0.8)]">
+                  {mult.toFixed(2)}
+                  <span className="text-rose-500">x</span>
+                </div>
+              )}
             </div>
           ) : (
             <div className="flex flex-col items-center gap-2">
-              <div className="grid h-14 w-14 place-items-center rounded-full border border-rose-500/40 bg-rose-500/10 shadow-[0_0_20px_rgba(239,68,68,0.25)]">
-                <Zap className="h-7 w-7 text-rose-400 animate-pulse" />
+              <div className="font-display text-3xl sm:text-4xl font-black text-white/90">
+                WAIT FOR NEXT ROUND
               </div>
-              <span className="font-display text-xs font-bold uppercase tracking-widest text-white/60">
-                WAITING FOR NEXT ROUND
-              </span>
+              <div className="font-mono text-sm font-bold text-rose-400">
+                Starts in {countdown.toFixed(1)}s
+              </div>
             </div>
           )}
         </div>
@@ -324,7 +399,7 @@ export function CrashGame({ game }: { game: GameRow }) {
             <button
               key={v}
               type="button"
-              disabled={state === "flying"}
+              disabled={betPlaced && phase === "flying"}
               onClick={() => {
                 beep("chip");
                 setStake(v);
@@ -350,7 +425,7 @@ export function CrashGame({ game }: { game: GameRow }) {
             <div className="flex items-center rounded-xl border border-white/10 bg-black/40 p-1">
               <button
                 type="button"
-                disabled={state === "flying"}
+                disabled={betPlaced}
                 onClick={() => {
                   beep("chip");
                   setStake((s) => Math.max(game.min_stake, s - 50));
@@ -364,12 +439,12 @@ export function CrashGame({ game }: { game: GameRow }) {
                 inputMode="numeric"
                 value={stake}
                 onChange={(e) => setStake(Number(e.target.value))}
-                disabled={state === "flying"}
+                disabled={betPlaced}
                 className="h-10 min-w-0 flex-1 bg-transparent text-center font-display text-lg font-black text-amber-300 outline-none"
               />
               <button
                 type="button"
-                disabled={state === "flying"}
+                disabled={betPlaced}
                 onClick={() => {
                   beep("chip");
                   setStake((s) => Math.min(game.max_stake, s + 50));
@@ -388,7 +463,7 @@ export function CrashGame({ game }: { game: GameRow }) {
             <input
               value={auto}
               onChange={(e) => setAuto(e.target.value)}
-              disabled={state === "flying"}
+              disabled={betPlaced}
               placeholder="e.g. 2.00"
               inputMode="decimal"
               className="h-12 w-full rounded-xl border border-white/10 bg-black/40 px-3 text-center font-display text-sm font-bold text-white placeholder-white/20 outline-none focus:border-rose-500/50"
@@ -396,8 +471,9 @@ export function CrashGame({ game }: { game: GameRow }) {
           </div>
         </div>
 
-        {/* Big Action Button (BET / CASHOUT) */}
-        {state === "flying" ? (
+        {/* Context-aware Action Button */}
+        {phase === "flying" && betPlaced && !hasCashedOut ? (
+          /* Active Flying Bet -> Big Cash Out */
           <button
             type="button"
             onClick={() => check(true)}
@@ -408,17 +484,59 @@ export function CrashGame({ game }: { game: GameRow }) {
               ₨{fmt(Math.floor(stake * mult))} ({mult.toFixed(2)}x)
             </span>
           </button>
-        ) : (
+        ) : phase === "betting" ? (
+          betPlaced ? (
+            /* Bet Placed in 5s Window -> Option to Cancel */
+            <button
+              type="button"
+              onClick={() => {
+                beep("click");
+                setBetPlaced(false);
+              }}
+              className="flex min-h-16 w-full flex-col items-center justify-center rounded-2xl bg-gradient-to-r from-red-600 to-rose-500 font-display font-black uppercase text-white shadow-lg transition active:scale-[0.98]"
+            >
+              <span className="text-lg tracking-wider">CANCEL BET</span>
+              <span className="text-xs font-semibold opacity-90">WAITING FOR TAKEOFF (₨{fmt(stake)})</span>
+            </button>
+          ) : (
+            /* Place Bet in 5s Window */
+            <button
+              type="button"
+              onClick={() => {
+                beep("bet");
+                setBetPlaced(true);
+              }}
+              className="flex min-h-16 w-full flex-col items-center justify-center rounded-2xl bg-gradient-to-r from-emerald-600 to-green-500 font-display font-black uppercase text-white shadow-[0_0_20px_rgba(16,185,129,0.5)] transition hover:brightness-110 active:scale-[0.98]"
+            >
+              <span className="text-xl tracking-wider">BET</span>
+              <span className="text-xs font-bold tracking-tight opacity-95">₨{fmt(stake)}</span>
+            </button>
+          )
+        ) : queuedForNext ? (
+          /* Bet queued for next round during flight/crash */
           <button
             type="button"
-            onClick={launch}
-            disabled={busy || !!sid}
-            className="flex min-h-16 w-full flex-col items-center justify-center rounded-2xl bg-gradient-to-r from-emerald-600 to-green-500 font-display font-black uppercase text-white shadow-[0_0_20px_rgba(16,185,129,0.5)] transition hover:brightness-110 active:scale-[0.98] disabled:opacity-50"
+            onClick={() => {
+              beep("click");
+              setQueuedForNext(false);
+            }}
+            className="flex min-h-16 w-full flex-col items-center justify-center rounded-2xl bg-rose-700 font-display font-black uppercase text-white shadow-lg transition active:scale-[0.98]"
           >
-            <span className="text-xl tracking-wider">{busy ? "STARTING..." : "BET"}</span>
-            <span className="text-xs font-bold tracking-tight opacity-95">
-              ₨{fmt(stake)}
-            </span>
+            <span className="text-lg tracking-wider">CANCEL NEXT ROUND</span>
+            <span className="text-xs font-semibold opacity-90">BET ₨{fmt(stake)} QUEUED</span>
+          </button>
+        ) : (
+          /* Queue bet for next round while flying */
+          <button
+            type="button"
+            onClick={() => {
+              beep("bet");
+              setQueuedForNext(true);
+            }}
+            className="flex min-h-16 w-full flex-col items-center justify-center rounded-2xl bg-gradient-to-r from-emerald-600 to-green-500 font-display font-black uppercase text-white shadow-lg transition hover:brightness-110 active:scale-[0.98]"
+          >
+            <span className="text-lg tracking-wider">BET FOR NEXT ROUND</span>
+            <span className="text-xs font-bold tracking-tight opacity-95">₨{fmt(stake)}</span>
           </button>
         )}
       </div>
