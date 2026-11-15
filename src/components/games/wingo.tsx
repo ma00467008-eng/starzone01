@@ -628,7 +628,7 @@ export function WingoGame({ game }: { game: GameRow }) {
             <p className="py-8 text-center text-sm text-muted-foreground">No bets yet</p>
           ) : (
             <ul className="divide-y divide-border text-sm">
-              {myBets.map((b) => {
+              {myBets.map((b: any) => {
                 // Settle check
                 const isSettled = Boolean(
                   b.settled === true ||
