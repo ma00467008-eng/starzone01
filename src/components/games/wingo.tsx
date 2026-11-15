@@ -1,7 +1,8 @@
+// WinGo & Global Trend Component
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Clock, Minus, Plus } from "lucide-react";
+import { Clock, Minus, Plus, TrendingUp, BarChart3, Globe, Flame, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useApp, errMsg } from "@/lib/app-context";
 import { beep, fmt } from "@/lib/sound";
@@ -20,36 +21,56 @@ type Hist = { period: string; raw: number; number: number; hash: string };
 type Sel = { kind: "number" | "size" | "color"; value: string } | null;
 const BASES = [1, 10, 100, 1000];
 const MULTS = [1, 5, 10, 20, 50, 100];
+const DEPTHS = [20, 30, 50, 100] as const;
 
 export function WingoGame({ game }: { game: GameRow }) {
   const { t, session, profile } = useApp();
   const modes = MODES[game.slug] ?? [60];
   const [dur, setDur] = useState<number>(modes[0] ?? 60);
   const [now, setNow] = useState(() => Date.now());
+  const [serverOffset, setServerOffset] = useState<number>(0);
   const [sel, setSel] = useState<Sel>(null);
   const [base, setBase] = useState(Math.max(1, game.min_stake >= 10 ? 10 : 1));
   const [qty, setQty] = useState(Math.max(1, Math.ceil(game.min_stake / 10)));
   const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState<"hist" | "chart" | "mine">("hist");
+  const [histLimit, setHistLimit] = useState<number>(30);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const qc = useQueryClient();
   const after = useAfterPlay(game.slug);
   const lastPeriod = useRef<number | null>(null);
   const isTrx = game.slug === "trx";
 
-  useEffect(() => { const i = setInterval(() => setNow(Date.now()), 250); return () => clearInterval(i); }, []);
+  // Global time tick with server calibration
+  useEffect(() => {
+    const i = setInterval(() => setNow(Date.now() + serverOffset), 250);
+    return () => clearInterval(i);
+  }, [serverOffset]);
+
   const period = Math.floor(now / 1000 / dur);
   const remain = Math.max(0, Math.ceil((period + 1) * dur - now / 1000));
   const stake = base * qty;
 
-  const { data: hist } = useQuery({
-    queryKey: ["wingo-hist", game.slug, dur, period],
+  const { data: hist, refetch: refetchHist, isFetching: isHistLoading } = useQuery({
+    queryKey: ["wingo-hist", game.slug, dur, period, histLimit],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("wingo_history", { _game: game.slug, _duration: dur, _n: 20 });
+      const { data, error } = await supabase.rpc("wingo_history", { _game: game.slug, _duration: dur, _n: histLimit });
       if (error) throw error;
-      return (data as Hist[]) ?? [];
+      const list = (data as Hist[]) ?? [];
+      // Calibrate server clock offset from global period
+      if (list.length > 0 && list[0]) {
+        const expectedServerPeriod = list[0].raw + 1;
+        const currentClientPeriod = Math.floor((Date.now() + serverOffset) / 1000 / dur);
+        if (Math.abs(currentClientPeriod - expectedServerPeriod) >= 1) {
+          const targetTime = expectedServerPeriod * dur * 1000 + (dur * 500);
+          setServerOffset(targetTime - Date.now());
+        }
+      }
+      return list;
     },
+    refetchInterval: remain <= 3 ? 1000 : 8000,
   });
+
   const { data: myBets } = useQuery({
     queryKey: ["wingo-bets", game.slug, session?.user.id],
     enabled: !!session,
@@ -59,22 +80,25 @@ export function WingoGame({ game }: { game: GameRow }) {
   useEffect(() => { if (remain <= 5 && remain > 0) beep("tick"); }, [remain]);
 
   useEffect(() => {
-    if (lastPeriod.current !== null && lastPeriod.current !== period && session) {
-      const prevDur = dur;
-      setTimeout(() => {
-        supabase.rpc("wingo_settle").then(async ({ data }) => {
-          const r = data as { settled: number; won: number; balance: number } | null;
-          if (!r?.settled) return;
-          after(r.balance);
-          qc.invalidateQueries({ queryKey: ["wingo-bets", game.slug] });
-          const { data: h } = await supabase.rpc("wingo_history", { _game: game.slug, _duration: prevDur, _n: 1 });
-          const last = (h as Hist[] | null)?.[0];
-          setOutcome({
-            win: r.won > 0, amount: r.won, round: last?.period,
-            detail: last ? <ResultChips n={last.number} /> : undefined,
+    if (lastPeriod.current !== null && lastPeriod.current !== period) {
+      refetchHist();
+      if (session) {
+        const prevDur = dur;
+        setTimeout(() => {
+          supabase.rpc("wingo_settle").then(async ({ data }) => {
+            const r = data as { settled: number; won: number; balance: number } | null;
+            if (!r?.settled) return;
+            after(r.balance);
+            qc.invalidateQueries({ queryKey: ["wingo-bets", game.slug] });
+            const { data: h } = await supabase.rpc("wingo_history", { _game: game.slug, _duration: prevDur, _n: 1 });
+            const last = (h as Hist[] | null)?.[0];
+            setOutcome({
+              win: r.won > 0, amount: r.won, round: last?.period,
+              detail: last ? <ResultChips n={last.number} /> : undefined,
+            });
           });
-        });
-      }, 600);
+        }, 700);
+      }
     }
     lastPeriod.current = period;
   }, [period, session]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -105,8 +129,67 @@ export function WingoGame({ game }: { game: GameRow }) {
   const selTone: string = (sel ? (sel.kind === "number" ? colorBg[numColors(Number(sel.value))[0]!] : colorBg[sel.value]) : "") ?? "";
   const open = (s: Sel) => { if (closed) return; beep("click"); setSel(s); };
 
+  // Calculate Global Trend Statistics
+  const trendStats = useMemo(() => {
+    const list = hist ?? [];
+    const counts = Array(10).fill(0);
+    let big = 0;
+    let small = 0;
+    let red = 0;
+    let green = 0;
+    let violet = 0;
+
+    list.forEach((item) => {
+      if (item.number >= 0 && item.number <= 9) counts[item.number]++;
+      if (item.number >= 5) big++; else small++;
+      const cols = numColors(item.number);
+      if (cols.includes("red")) red++;
+      if (cols.includes("green")) green++;
+      if (cols.includes("violet")) violet++;
+    });
+
+    const total = list.length || 1;
+    let maxCount = -1;
+    let hotNumber = 0;
+    counts.forEach((c, idx) => {
+      if (c > maxCount) {
+        maxCount = c;
+        hotNumber = idx;
+      }
+    });
+
+    return { counts, big, small, red, green, violet, total, hotNumber, maxCount };
+  }, [hist]);
+
+  // Calculate Omission (Missing count) for each period
+  const omissionMatrix = useMemo(() => {
+    const list = hist ?? [];
+    if (!list.length) return [];
+    // Process from oldest to newest
+    const reversed = [...list].reverse();
+    const currMissing = Array(10).fill(0);
+    const rowOmissions: Record<string, number[]> = {};
+
+    reversed.forEach((row) => {
+      for (let n = 0; n < 10; n++) {
+        if (row.number === n) {
+          currMissing[n] = 0;
+        } else {
+          currMissing[n] = (currMissing[n] ?? 0) + 1;
+        }
+      }
+      rowOmissions[row.period] = [...currMissing];
+    });
+
+    return list.map((r) => ({
+      ...r,
+      missing: rowOmissions[r.period] ?? Array(10).fill(1),
+    }));
+  }, [hist]);
+
   return (
     <div className="space-y-3">
+      {/* Mode Selector */}
       <div className="grid grid-flow-col gap-1.5 rounded-2xl bg-card p-1.5 shadow-card">
         {modes.map((m) => (
           <button key={m} onClick={() => setDur(m)} className={cn("flex flex-col items-center gap-0.5 rounded-xl py-2 text-[11px] font-semibold transition", m === dur ? "bg-gradient-primary text-primary-foreground shadow-glow" : "text-muted-foreground")}>
@@ -115,10 +198,16 @@ export function WingoGame({ game }: { game: GameRow }) {
         ))}
       </div>
 
+      {/* Countdown Stage with Global Live Badge */}
       <Stage className="bg-gradient-night p-4">
         <div className="flex items-stretch justify-between gap-3">
           <div className="min-w-0">
-            <div className="text-xs text-casino-muted">{isTrx ? "TRX WinGo" : game.name} {label(dur)}</div>
+            <div className="flex items-center gap-1.5 text-xs text-casino-muted">
+              <span>{isTrx ? "TRX WinGo" : game.name} {label(dur)}</span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-bold text-emerald-400">
+                <Globe className="h-2.5 w-2.5 animate-pulse" /> Global Live
+              </span>
+            </div>
             <div className="mt-2 flex gap-1">{(hist ?? []).slice(0, 5).map((h) => <Ball key={h.raw} n={h.number} size="sm" />)}</div>
           </div>
           <div className="text-right">
@@ -131,6 +220,7 @@ export function WingoGame({ game }: { game: GameRow }) {
         </div>
       </Stage>
 
+      {/* Bet Controls */}
       <div className="relative space-y-3 rounded-2xl bg-card p-3 shadow-card">
         {closed && <div className="absolute inset-0 z-10 grid place-items-center rounded-2xl bg-night/75 backdrop-blur-[1px]"><div className="flex gap-2">{String(remain).padStart(2, "0").split("").map((c, i) => <span key={i} className="grid h-24 w-16 place-items-center rounded-xl bg-card font-display text-6xl font-black text-primary-deep">{c}</span>)}</div></div>}
         <div className="grid grid-cols-3 gap-2">
@@ -149,40 +239,214 @@ export function WingoGame({ game }: { game: GameRow }) {
         </div>
       </div>
 
+      {/* Navigation Tabs */}
       <div className="grid grid-cols-3 gap-1.5">
-        {([["hist", t("game.results")], ["chart", t("game.trend")], ["mine", t("game.my_history")]] as const).map(([k, l]) => (
-          <button key={k} onClick={() => setTab(k)} className={cn("rounded-xl py-2.5 text-sm font-bold", tab === k ? "bg-gradient-primary text-primary-foreground shadow-glow" : "bg-card text-muted-foreground shadow-card")}>{l}</button>
-        ))}
+        <button onClick={() => setTab("hist")} className={cn("rounded-xl py-2.5 text-xs sm:text-sm font-bold transition flex items-center justify-center gap-1", tab === "hist" ? "bg-gradient-primary text-primary-foreground shadow-glow" : "bg-card text-muted-foreground shadow-card")}>
+          <BarChart3 className="h-4 w-4" /> {t("game.results")}
+        </button>
+        <button onClick={() => setTab("chart")} className={cn("rounded-xl py-2.5 text-xs sm:text-sm font-bold transition flex items-center justify-center gap-1", tab === "chart" ? "bg-gradient-primary text-primary-foreground shadow-glow" : "bg-card text-muted-foreground shadow-card")}>
+          <TrendingUp className="h-4 w-4" /> Global Trend
+        </button>
+        <button onClick={() => setTab("mine")} className={cn("rounded-xl py-2.5 text-xs sm:text-sm font-bold transition flex items-center justify-center gap-1", tab === "mine" ? "bg-gradient-primary text-primary-foreground shadow-glow" : "bg-card text-muted-foreground shadow-card")}>
+          {t("game.my_history")}
+        </button>
       </div>
 
+      {/* Tab Contents */}
       <div className="overflow-hidden rounded-2xl bg-card shadow-card">
+        {/* GAME RESULTS TAB */}
         {tab === "hist" && (
-          <table className="w-full text-sm">
-            <thead className="bg-gradient-primary text-xs text-primary-foreground"><tr><th className="px-3 py-2.5 text-left">Period</th>{isTrx && <th className="text-left">Block</th>}<th>Number</th><th>Big Small</th><th>Color</th></tr></thead>
-            <tbody>
-              {(hist ?? []).map((h) => (
-                <tr key={h.raw} className="border-t border-border">
-                  <td className="px-3 py-2.5 font-mono text-xs">{h.period}</td>
-                  {isTrx && <td className="font-mono text-[10px] text-muted-foreground">{h.hash?.slice(-6)}</td>}
-                  <td className={cn("text-center font-display text-xl font-black", numColors(h.number)[0] === "red" ? "text-game-red" : "text-game-green")}>{h.number}</td>
-                  <td className="text-center">{h.number >= 5 ? t("game.big") : t("game.small")}</td>
-                  <td><div className="flex justify-center gap-1">{numColors(h.number).map((c) => <span key={c} className={cn("h-3 w-3 rounded-full", colorBg[c])} />)}</div></td>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gradient-primary text-xs text-primary-foreground">
+                <tr>
+                  <th className="px-3 py-2.5 text-left">Period</th>
+                  {isTrx && <th className="text-left">Block</th>}
+                  <th className="text-center">Number</th>
+                  <th className="text-center">Big/Small</th>
+                  <th className="text-center">Color</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-        {tab === "chart" && (
-          <div className="p-3">
-            <div className="mb-2 grid grid-cols-[1fr_auto] text-xs font-bold text-muted-foreground"><span>Period</span><span>Number</span></div>
-            {(hist ?? []).map((h) => (
-              <div key={h.raw} className="grid grid-cols-[6.5rem_1fr] items-center border-t border-border py-1.5">
-                <span className="font-mono text-[11px]">{h.period.slice(-6)}</span>
-                <div className="grid grid-cols-10 gap-0.5">{Array.from({ length: 10 }, (_, n) => n === h.number ? <Ball key={n} n={n} size="xs" /> : <span key={n} className="grid h-5 w-5 place-items-center rounded-full border border-border text-[10px] text-muted-foreground">{n}</span>)}</div>
-              </div>
-            ))}
+              </thead>
+              <tbody>
+                {(hist ?? []).map((h) => (
+                  <tr key={h.raw} className="border-t border-border/60 hover:bg-secondary/20">
+                    <td className="px-3 py-2.5 font-mono text-xs">{h.period}</td>
+                    {isTrx && <td className="font-mono text-[10px] text-muted-foreground">{h.hash?.slice(-6)}</td>}
+                    <td className="text-center">
+                      <div className="flex justify-center">
+                        <Ball n={h.number} size="sm" />
+                      </div>
+                    </td>
+                    <td className="text-center">
+                      <span className={cn("inline-block rounded-md px-2 py-0.5 text-xs font-bold", h.number >= 5 ? "bg-gold/20 text-gold" : "bg-primary/20 text-primary")}>
+                        {h.number >= 5 ? t("game.big") : t("game.small")}
+                      </span>
+                    </td>
+                    <td className="text-center">
+                      <div className="flex justify-center gap-1">
+                        {numColors(h.number).map((c) => <span key={c} className={cn("h-3 w-3 rounded-full shadow-sm", colorBg[c])} />)}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
+
+        {/* GLOBAL TREND TAB */}
+        {tab === "chart" && (
+          <div className="p-3 space-y-3">
+            {/* Header Controls & Depth Filter */}
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-2.5">
+              <div className="flex items-center gap-1.5">
+                <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
+                <span className="text-xs font-bold uppercase tracking-wider text-foreground">Global Trend Chart</span>
+                <span className="text-[11px] text-muted-foreground font-mono">({dur}s)</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-[11px] text-muted-foreground mr-1">Rounds:</span>
+                {DEPTHS.map((d) => (
+                  <button key={d} onClick={() => setHistLimit(d)} className={cn("rounded-md px-2 py-0.5 text-[11px] font-bold transition", histLimit === d ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground")}>
+                    {d}
+                  </button>
+                ))}
+                <button onClick={() => refetchHist()} disabled={isHistLoading} className="ml-1 text-muted-foreground hover:text-foreground p-1" title="Refresh">
+                  <RefreshCw className={cn("h-3.5 w-3.5", isHistLoading && "animate-spin text-primary")} />
+                </button>
+              </div>
+            </div>
+
+            {/* Global Stats Overview */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {/* Big / Small Ratio */}
+              <div className="rounded-xl bg-secondary/50 p-2.5 border border-border/50">
+                <div className="flex justify-between text-[11px] font-semibold text-muted-foreground mb-1">
+                  <span>Big / Small</span>
+                  <span>{trendStats.total} rounds</span>
+                </div>
+                <div className="flex items-center justify-between font-bold text-xs mb-1.5">
+                  <span className="text-gold">Big: {trendStats.big} ({Math.round((trendStats.big / trendStats.total) * 100)}%)</span>
+                  <span className="text-primary">Small: {trendStats.small} ({Math.round((trendStats.small / trendStats.total) * 100)}%)</span>
+                </div>
+                <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden flex">
+                  <div className="bg-gold h-full" style={{ width: `${(trendStats.big / trendStats.total) * 100}%` }} />
+                  <div className="bg-primary h-full" style={{ width: `${(trendStats.small / trendStats.total) * 100}%` }} />
+                </div>
+              </div>
+
+              {/* Color Breakdown */}
+              <div className="rounded-xl bg-secondary/50 p-2.5 border border-border/50">
+                <div className="text-[11px] font-semibold text-muted-foreground mb-1">Color Stats</div>
+                <div className="flex items-center justify-between text-xs font-bold pt-0.5">
+                  <span className="text-game-green flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-game-green" />{trendStats.green}</span>
+                  <span className="text-game-red flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-game-red" />{trendStats.red}</span>
+                  <span className="text-game-violet flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-game-violet" />{trendStats.violet}</span>
+                </div>
+              </div>
+
+              {/* Hot Winning Number */}
+              <div className="col-span-2 sm:col-span-1 rounded-xl bg-secondary/50 p-2.5 border border-border/50 flex items-center justify-between">
+                <div>
+                  <div className="text-[11px] font-semibold text-muted-foreground">Top Winning Ball</div>
+                  <div className="text-xs font-bold text-foreground mt-0.5">Number {trendStats.hotNumber} ({trendStats.maxCount} hits)</div>
+                </div>
+                <Ball n={trendStats.hotNumber} size="sm" />
+              </div>
+            </div>
+
+            {/* Frequency Bar for 0-9 */}
+            <div className="rounded-xl bg-secondary/40 p-2 border border-border/40">
+              <div className="text-[11px] font-semibold text-muted-foreground mb-1.5 flex items-center gap-1">
+                <Flame className="h-3.5 w-3.5 text-gold" /> Number Frequency (Hits in last {trendStats.total} rounds)
+              </div>
+              <div className="grid grid-cols-10 gap-1 text-center font-mono">
+                {trendStats.counts.map((cnt, n) => (
+                  <div key={n} className={cn("rounded-lg py-1 px-0.5 text-xs transition", cnt === trendStats.maxCount && cnt > 0 ? "bg-gold/20 border border-gold/40 text-gold font-bold" : "bg-card/70")}>
+                    <div className="text-[10px] text-muted-foreground">{n}</div>
+                    <div className="font-bold">{cnt}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Visual Trend Chart with SVG Polyline */}
+            <div className="overflow-x-auto rounded-xl border border-border/60 bg-night/30">
+              <div className="min-w-[420px]">
+                {/* Table Header */}
+                <div className="grid grid-cols-[5.5rem_2.5rem_2.2rem_2.2rem_1fr] items-center bg-secondary/80 px-2 py-2 text-[11px] font-bold text-muted-foreground border-b border-border/60">
+                  <span>Period</span>
+                  <span className="text-center">Num</span>
+                  <span className="text-center">B/S</span>
+                  <span className="text-center">Col</span>
+                  <div className="grid grid-cols-10 text-center font-mono font-bold text-[11px] text-foreground">
+                    {Array.from({ length: 10 }, (_, n) => <span key={n}>{n}</span>)}
+                  </div>
+                </div>
+
+                {/* Table Body with SVG Trend Line */}
+                <div className="relative">
+                  {/* SVG Connecting Line Overlay positioned precisely over the 10-column block */}
+                  {omissionMatrix.length > 1 && (
+                    <div className="absolute top-0 bottom-0 right-2 left-[12.9rem] pointer-events-none z-10">
+                      <svg className="w-full h-full" viewBox={`0 0 1000 ${omissionMatrix.length * 36}`} preserveAspectRatio="none">
+                        <polyline
+                          points={omissionMatrix.map((r, idx) => {
+                            const x = (r.number * 100) + 50;
+                            const y = (idx * 36) + 18;
+                            return `${x},${y}`;
+                          }).join(" ")}
+                          fill="none"
+                          stroke="#F59E0B"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="drop-shadow-[0_0_4px_rgba(245,158,11,0.6)]"
+                        />
+                      </svg>
+                    </div>
+                  )}
+
+                  {/* Rows */}
+                  {omissionMatrix.map((h, rowIdx) => (
+                    <div key={h.raw} className={cn("grid grid-cols-[5.5rem_2.5rem_2.2rem_2.2rem_1fr] items-center px-2 h-9 border-b border-border/40 text-xs transition hover:bg-secondary/30", rowIdx % 2 === 0 ? "bg-card/40" : "bg-card/20")}>
+                      <span className="font-mono text-[11px] text-muted-foreground">{h.period.slice(-5)}</span>
+                      <div className="flex justify-center">
+                        <span className={cn("grid h-5 w-5 place-items-center rounded-full font-bold text-[10px] text-primary-foreground", colorBg[numColors(h.number)[0]!])}>
+                          {h.number}
+                        </span>
+                      </div>
+                      <div className="text-center font-bold text-[11px]">
+                        <span className={h.number >= 5 ? "text-gold" : "text-primary"}>
+                          {h.number >= 5 ? "B" : "S"}
+                        </span>
+                      </div>
+                      <div className="flex justify-center">
+                        <span className={cn("h-2.5 w-2.5 rounded-full", colorBg[numColors(h.number)[0]!])} />
+                      </div>
+                      {/* 0-9 Matrix with Winning Ball and Omission Numbers */}
+                      <div className="grid grid-cols-10 h-full items-center text-center">
+                        {Array.from({ length: 10 }, (_, n) => (
+                          <div key={n} className="grid place-items-center h-full">
+                            {n === h.number ? (
+                              <Ball n={n} size="xs" />
+                            ) : (
+                              <span className="grid h-4 w-4 place-items-center rounded-full text-[10px] font-mono text-muted-foreground/60">
+                                {h.missing[n] ?? 1}
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* MY BETS TAB */}
         {tab === "mine" && (!myBets?.length ? <p className="py-8 text-center text-sm text-muted-foreground">No bets yet</p> : (
           <ul className="divide-y divide-border text-sm">
             {myBets.map((b) => (
@@ -196,6 +460,7 @@ export function WingoGame({ game }: { game: GameRow }) {
         ))}
       </div>
 
+      {/* Bet Bottom Sheet */}
       <Sheet open={!!sel} onOpenChange={(o) => !o && setSel(null)}>
         <SheetContent side="bottom" className="mx-auto max-w-md rounded-t-3xl border-0 p-0">
           <div className={cn("rounded-t-3xl px-4 pb-8 pt-5 text-center text-primary-foreground", selTone)} style={{ clipPath: "polygon(0 0,100% 0,100% 80%,50% 100%,0 80%)" }}>
