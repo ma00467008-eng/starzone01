@@ -1,4 +1,4 @@
-// WinGo Component - Clean Trend, Win/Loss Payouts & 50-Result Arrow Pagination
+// WinGo Component - Synchronized Periods, Accurate Win/Loss & Clean Trend
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -40,7 +40,7 @@ const GLOBAL_FEED_URLS: Record<number, string> = {
 };
 
 /**
- * Official WinGo Global Period Formatter
+ * Standard WinGo Period Formatter
  */
 export function formatGlobalPeriod(rawPeriod: number, duration: number): string {
   const d = new Date(rawPeriod * duration * 1000);
@@ -57,6 +57,27 @@ export function formatGlobalPeriod(rawPeriod: number, duration: number): string 
   return `${yyyy}${mm}${dd}${code}${roundStr}`;
 }
 
+/**
+ * Normalizes any stored bet period to display consistently
+ */
+export function formatBetPeriod(p: any, duration: number): string {
+  if (!p) return "";
+  const s = String(p).trim();
+  if (s.length >= 14) return s;
+
+  const num = Number(s);
+  if (!isNaN(num) && num > 0) {
+    if (num > 1_000_000_000_000) {
+      return formatGlobalPeriod(Math.floor(num / 1000 / duration), duration);
+    }
+    if (num > 1_000_000_000) {
+      return formatGlobalPeriod(Math.floor(num / duration), duration);
+    }
+    return formatGlobalPeriod(num, duration);
+  }
+  return s;
+}
+
 export function WingoGame({ game }: { game: GameRow }) {
   const { t, session, profile } = useApp();
   const modes = MODES[game.slug] ?? [60];
@@ -70,7 +91,7 @@ export function WingoGame({ game }: { game: GameRow }) {
   const [tab, setTab] = useState<"hist" | "chart" | "mine">("hist");
   const [outcome, setOutcome] = useState<Outcome | null>(null);
 
-  // Pagination State (10 results per page, up to 50 results / 5 pages)
+  // Pagination (10 results per page, up to 50 results / 5 pages)
   const [page, setPage] = useState<number>(1);
   const [accumulatedHist, setAccumulatedHist] = useState<Hist[]>([]);
 
@@ -79,13 +100,12 @@ export function WingoGame({ game }: { game: GameRow }) {
   const lastPeriod = useRef<number | null>(null);
   const isTrx = game.slug === "trx";
 
-  // Reset pagination when duration changes
   useEffect(() => {
     setPage(1);
     setAccumulatedHist([]);
   }, [dur]);
 
-  // Global time tick with server calibration
+  // Global time tick
   useEffect(() => {
     const i = setInterval(() => setNow(Date.now() + serverOffset), 250);
     return () => clearInterval(i);
@@ -95,7 +115,7 @@ export function WingoGame({ game }: { game: GameRow }) {
   const remain = Math.max(0, Math.ceil((period + 1) * dur - now / 1000));
   const stake = base * qty;
 
-  // Fetch Live Global Results
+  // Live Results Feed
   const {
     data: feedItems,
     refetch: refetchHist,
@@ -121,10 +141,10 @@ export function WingoGame({ game }: { game: GameRow }) {
           }
         }
       } catch (err) {
-        console.warn("Global feed fetch failed, falling back to local RPC:", err);
+        console.warn("Feed fetch fallback to Supabase:", err);
       }
 
-      // Fallback to Supabase database if offline
+      // Fallback to database
       const { data, error } = await supabase.rpc("wingo_history", { _game: game.slug, _duration: dur, _n: 50 });
       if (error) throw error;
       return ((data as Hist[]) ?? []).map((h) => ({
@@ -135,7 +155,7 @@ export function WingoGame({ game }: { game: GameRow }) {
     refetchInterval: remain <= 3 ? 1000 : 4000,
   });
 
-  // Accumulate up to 50 unique results for pagination
+  // Accumulate up to 50 unique results
   useEffect(() => {
     if (feedItems && feedItems.length > 0) {
       setAccumulatedHist((prev) => {
@@ -150,7 +170,6 @@ export function WingoGame({ game }: { game: GameRow }) {
     }
   }, [feedItems]);
 
-  // Paginated Results (10 per page, max 50 total / 5 pages)
   const pageSize = 10;
   const totalPages = Math.max(1, Math.min(5, Math.ceil(accumulatedHist.length / pageSize)));
   const currentPage = Math.min(page, totalPages);
@@ -159,9 +178,22 @@ export function WingoGame({ game }: { game: GameRow }) {
     return accumulatedHist.slice((currentPage - 1) * pageSize, currentPage * pageSize);
   }, [accumulatedHist, currentPage, pageSize]);
 
+  // Synchronized active period code: derived from latest history issue + 1
+  const latestHistPeriod = accumulatedHist?.[0]?.period ?? feedItems?.[0]?.period;
+  const activePeriodCode = useMemo(() => {
+    if (latestHistPeriod && /^\d+$/.test(latestHistPeriod)) {
+      try {
+        return (BigInt(latestHistPeriod) + 1n).toString();
+      } catch {
+        // Fallback
+      }
+    }
+    return formatGlobalPeriod(period, dur);
+  }, [latestHistPeriod, period, dur]);
+
   // User Bets History
   const { data: myBets } = useQuery({
-    queryKey: ["wingo-bets", game.slug, session?.user.id],
+    queryKey: ["wingo-bets", game.slug, session?.user?.id],
     enabled: !!session,
     queryFn: async () =>
       (
@@ -172,6 +204,7 @@ export function WingoGame({ game }: { game: GameRow }) {
           .order("created_at", { ascending: false })
           .limit(30)
       ).data ?? [],
+    refetchInterval: tab === "mine" ? 3000 : 8000,
   });
 
   useEffect(() => {
@@ -238,7 +271,6 @@ export function WingoGame({ game }: { game: GameRow }) {
     setSel(null);
   };
 
-  const periodCode = useMemo(() => formatGlobalPeriod(period, dur), [period, dur]);
   const closed = remain <= 5;
   const mm = String(Math.floor(remain / 60)).padStart(2, "0");
   const ss = String(remain % 60).padStart(2, "0");
@@ -324,7 +356,7 @@ export function WingoGame({ game }: { game: GameRow }) {
                 )
               )}
             </div>
-            <div className="mt-1.5 font-mono text-[11px] text-casino-muted">{periodCode}</div>
+            <div className="mt-1.5 font-mono text-[11px] text-casino-muted">{activePeriodCode}</div>
           </div>
         </div>
       </Stage>
@@ -471,10 +503,9 @@ export function WingoGame({ game }: { game: GameRow }) {
           </div>
         )}
 
-        {/* TREND TAB (CLEAN VERSION - NO STATS/FREQUENCY, JUST PURE TREND CHART) */}
+        {/* TREND TAB */}
         {tab === "chart" && (
           <div className="p-3 space-y-3">
-            {/* Header with Duration & Sync */}
             <div className="flex items-center justify-between border-b border-border/60 pb-2">
               <div className="flex items-center gap-1.5">
                 <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
@@ -490,7 +521,6 @@ export function WingoGame({ game }: { game: GameRow }) {
               </button>
             </div>
 
-            {/* Visual Trend Chart with SVG Polyline */}
             <div className="overflow-x-auto rounded-xl border border-border/60 bg-night/30">
               <div className="min-w-[420px]">
                 <div className="grid grid-cols-[5.5rem_2.5rem_2.2rem_2.2rem_1fr] items-center bg-secondary/80 px-2 py-2 text-[11px] font-bold text-muted-foreground border-b border-border/60">
@@ -592,21 +622,63 @@ export function WingoGame({ game }: { game: GameRow }) {
           </div>
         )}
 
-        {/* MY BETS TAB WITH + WIN & - LOSS ICONS */}
+        {/* MY BETS TAB */}
         {tab === "mine" &&
           (!myBets?.length ? (
             <p className="py-8 text-center text-sm text-muted-foreground">No bets yet</p>
           ) : (
             <ul className="divide-y divide-border text-sm">
               {myBets.map((b) => {
-                const isSettled = Boolean(b.settled);
-                const isWin = Boolean(
-                  b.payout > 0 ||
-                  b.won === true ||
-                  (typeof b.won === "number" && b.won > 0) ||
-                  b.status === "won"
+                // Settle check
+                const isSettled = Boolean(
+                  b.settled === true ||
+                  b.status === "settled" ||
+                  b.status === "win" ||
+                  b.status === "won" ||
+                  b.status === "loss" ||
+                  b.status === "lost" ||
+                  b.is_settled === true ||
+                  b.settled_at != null ||
+                  (b.payout !== null && b.payout !== undefined) ||
+                  (b.won !== null && b.won !== undefined) ||
+                  (b.is_win !== null && b.is_win !== undefined)
                 );
-                const winAmount = b.payout ?? b.won ?? b.win_amount ?? (isWin ? b.stake * 1.96 : 0);
+
+                // Win check
+                const isWin = Boolean(
+                  b.is_win === true ||
+                  b.won === true ||
+                  b.status === "win" ||
+                  b.status === "won" ||
+                  b.result === "win" ||
+                  b.result === "won" ||
+                  Number(b.payout) > 0 ||
+                  Number(b.win) > 0 ||
+                  Number(b.won) > 0 ||
+                  Number(b.win_amount) > 0 ||
+                  Number(b.won_amount) > 0 ||
+                  Number(b.payout_amount) > 0 ||
+                  Number(b.profit) > 0 ||
+                  (typeof b.won === "number" && b.won > 0)
+                );
+
+                // Win payout calculation
+                const payoutVal =
+                  (Number(b.payout) > 0 ? Number(b.payout) : null) ??
+                  (Number(b.win_amount) > 0 ? Number(b.win_amount) : null) ??
+                  (Number(b.won_amount) > 0 ? Number(b.won_amount) : null) ??
+                  (Number(b.payout_amount) > 0 ? Number(b.payout_amount) : null) ??
+                  (Number(b.profit) > 0 ? Number(b.profit) : null) ??
+                  (typeof b.won === "number" && b.won > 0 ? b.won : null) ??
+                  (Number(b.win) > 0 ? Number(b.win) : null) ??
+                  (b.kind === "number"
+                    ? b.stake * 9
+                    : b.value === "violet"
+                    ? b.stake * 4.5
+                    : b.stake * 1.96);
+
+                const displayWinAmount = isWin ? payoutVal : 0;
+                const formattedPeriod = formatBetPeriod(b.period, b.duration || dur);
 
                 return (
                   <li key={b.id} className="flex items-center gap-3 px-3 py-3 hover:bg-secondary/20 transition">
@@ -619,9 +691,9 @@ export function WingoGame({ game }: { game: GameRow }) {
                       {b.value}
                     </span>
                     <div className="min-w-0 flex-1">
-                      <div className="font-mono text-xs font-semibold">{b.period}</div>
+                      <div className="font-mono text-xs font-semibold">{formattedPeriod}</div>
                       <div className="text-[11px] text-muted-foreground">
-                        {label(b.duration)} · {new Date(b.created_at ?? "").toLocaleTimeString()}
+                        {label(b.duration || dur)} · {new Date(b.created_at ?? "").toLocaleTimeString()}
                       </div>
                     </div>
                     <div className="text-right">
@@ -629,7 +701,7 @@ export function WingoGame({ game }: { game: GameRow }) {
                         isWin ? (
                           <div className="flex items-center justify-end gap-0.5 font-bold text-emerald-500 tabular-nums text-sm">
                             <Plus className="h-3.5 w-3.5 stroke-[3]" />
-                            <span>{fmt(winAmount)}</span>
+                            <span>{fmt(displayWinAmount)}</span>
                           </div>
                         ) : (
                           <div className="flex items-center justify-end gap-0.5 font-bold text-destructive tabular-nums text-sm">
