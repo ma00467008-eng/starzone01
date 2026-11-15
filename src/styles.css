@@ -1,9 +1,7 @@
 @import "tailwindcss" source(none);
 @source "../src";
 @import "tw-animate-css";
-
 @custom-variant dark (&:is(.dark *));
-
 @theme inline {
   --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Sora", "Manrope", ui-sans-serif, sans-serif;
@@ -62,24 +60,23 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 }
-
 :root {
   --radius: 0.875rem;
-  --background: oklch(0.982 0.009 236);       /* #F4FAFF */
-  --foreground: oklch(0.29 0.06 262);          /* #172B4D */
+  --background: oklch(0.985 0.01 295);       /* Soft clean lavender tint */
+  --foreground: oklch(0.24 0.08 295);          /* Deep midnight purple */
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.29 0.06 262);
+  --card-foreground: oklch(0.24 0.08 295);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.29 0.06 262);
-  --primary: oklch(0.75 0.14 232);             /* #38BDF8 */
+  --popover-foreground: oklch(0.24 0.08 295);
+  --primary: oklch(0.62 0.24 295);             /* Vibrant royal purple */
   --primary-foreground: oklch(1 0 0);
-  --primary-deep: oklch(0.59 0.15 242);        /* #0284C7 */
-  --secondary: oklch(0.95 0.025 232);
-  --secondary-foreground: oklch(0.45 0.13 245);
-  --muted: oklch(0.96 0.012 236);
-  --muted-foreground: oklch(0.55 0.04 255);
-  --accent: oklch(0.94 0.035 232);
-  --accent-foreground: oklch(0.45 0.13 245);
+  --primary-deep: oklch(0.48 0.25 292);        /* Deep jewel purple */
+  --secondary: oklch(0.94 0.035 295);         /* Light purple tint */
+  --secondary-foreground: oklch(0.42 0.22 292);
+  --muted: oklch(0.96 0.015 295);
+  --muted-foreground: oklch(0.52 0.06 290);
+  --accent: oklch(0.93 0.045 295);
+  --accent-foreground: oklch(0.42 0.22 292);
   --destructive: oklch(0.64 0.21 25);          /* #EF4444 */
   --destructive-foreground: oklch(1 0 0);
   --success: oklch(0.63 0.17 149);             /* #16A34A */
@@ -87,43 +84,42 @@
   --gold: oklch(0.8 0.15 80);
   --game-red: oklch(0.62 0.22 25);
   --game-green: oklch(0.65 0.18 149);
-  --game-violet: oklch(0.55 0.22 300);
-  --night: oklch(0.24 0.06 255);
-  --night-foreground: oklch(0.97 0.01 236);
-  --casino: oklch(0.2 0.04 258);
-  --casino-panel: oklch(0.26 0.05 258);
-  --casino-line: oklch(0.34 0.05 258);
-  --casino-muted: oklch(0.7 0.03 250);
+  --game-violet: oklch(0.58 0.24 300);
+  --night: oklch(0.20 0.08 290);               /* Dark purple night */
+  --night-foreground: oklch(0.97 0.015 295);
+  --casino: oklch(0.18 0.06 290);
+  --casino-panel: oklch(0.24 0.07 290);
+  --casino-line: oklch(0.32 0.07 290);
+  --casino-muted: oklch(0.68 0.05 290);
   --orange: oklch(0.72 0.19 50);
   --felt: oklch(0.36 0.09 160);
   --gradient-win: linear-gradient(180deg, oklch(0.86 0.15 85), oklch(0.68 0.17 60));
-  --gradient-lose: linear-gradient(180deg, oklch(0.55 0.04 255), oklch(0.35 0.04 258));
+  --gradient-lose: linear-gradient(180deg, oklch(0.52 0.06 290), oklch(0.32 0.05 290));
   --gradient-bet: linear-gradient(180deg, oklch(0.72 0.18 149), oklch(0.56 0.17 152));
   --gradient-cash: linear-gradient(180deg, oklch(0.8 0.17 65), oklch(0.66 0.19 45));
   --gradient-felt: radial-gradient(ellipse at center, oklch(0.42 0.1 160), oklch(0.24 0.07 165));
-  --border: oklch(0.92 0.02 236);
-  --input: oklch(0.92 0.02 236);
-  --ring: oklch(0.75 0.14 232);
-  --gradient-primary: linear-gradient(135deg, oklch(0.78 0.13 225), oklch(0.59 0.15 242));
-  --gradient-hero: linear-gradient(160deg, oklch(0.8 0.12 225) 0%, oklch(0.6 0.15 245) 100%);
-  --gradient-night: linear-gradient(180deg, oklch(0.28 0.08 255), oklch(0.18 0.05 260));
-  --shadow-card: 0 1px 2px oklch(0.4 0.08 250 / 0.06), 0 8px 24px -12px oklch(0.45 0.12 245 / 0.25);
-  --shadow-glow: 0 10px 30px -10px oklch(0.6 0.15 242 / 0.55);
-  --chart-1: oklch(0.75 0.14 232);
-  --chart-2: oklch(0.59 0.15 242);
+  --border: oklch(0.92 0.025 295);
+  --input: oklch(0.92 0.025 295);
+  --ring: oklch(0.62 0.24 295);
+  --gradient-primary: linear-gradient(135deg, oklch(0.68 0.23 300), oklch(0.48 0.25 290));
+  --gradient-hero: linear-gradient(160deg, oklch(0.72 0.21 305) 0%, oklch(0.48 0.25 290) 100%);
+  --gradient-night: linear-gradient(180deg, oklch(0.25 0.09 292), oklch(0.15 0.06 290));
+  --shadow-card: 0 1px 2px oklch(0.35 0.1 290 / 0.06), 0 8px 24px -12px oklch(0.4 0.15 292 / 0.22);
+  --shadow-glow: 0 10px 30px -10px oklch(0.55 0.24 295 / 0.55);
+  --chart-1: oklch(0.65 0.24 295);
+  --chart-2: oklch(0.48 0.25 292);
   --chart-3: oklch(0.63 0.17 149);
   --chart-4: oklch(0.8 0.15 80);
   --chart-5: oklch(0.64 0.21 25);
   --sidebar: oklch(1 0 0);
-  --sidebar-foreground: oklch(0.29 0.06 262);
-  --sidebar-primary: oklch(0.59 0.15 242);
+  --sidebar-foreground: oklch(0.24 0.08 295);
+  --sidebar-primary: oklch(0.48 0.25 292);
   --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.95 0.025 232);
-  --sidebar-accent-foreground: oklch(0.29 0.06 262);
-  --sidebar-border: oklch(0.92 0.02 236);
-  --sidebar-ring: oklch(0.75 0.14 232);
+  --sidebar-accent: oklch(0.94 0.035 295);
+  --sidebar-accent-foreground: oklch(0.24 0.08 295);
+  --sidebar-border: oklch(0.92 0.025 295);
+  --sidebar-ring: oklch(0.62 0.24 295);
 }
-
 @layer base {
   * { border-color: var(--color-border); }
   body {
@@ -135,7 +131,6 @@
   h1, h2, h3, .font-display { font-family: var(--font-display); letter-spacing: -0.01em; }
   [dir="rtl"] body { font-family: "Noto Nastaliq Urdu", var(--font-sans); }
 }
-
 @utility bg-gradient-primary { background-image: var(--gradient-primary); }
 @utility bg-gradient-hero { background-image: var(--gradient-hero); }
 @utility bg-gradient-night { background-image: var(--gradient-night); }
@@ -150,17 +145,14 @@
   scrollbar-width: none;
   &::-webkit-scrollbar { display: none; }
 }
-
 .reduce-motion *, .reduce-motion *::before, .reduce-motion *::after {
   animation-duration: 0.001ms !important;
   transition-duration: 0.001ms !important;
 }
-
 @keyframes pop-in { from { transform: scale(0.85); opacity: 0 } to { transform: scale(1); opacity: 1 } }
 .animate-pop { animation: pop-in 0.25s ease-out; }
 @keyframes rise { from { transform: translateY(8px); opacity: 0 } to { transform: none; opacity: 1 } }
 .animate-rise { animation: rise 0.3s ease-out both; }
-
 @keyframes coin-fall { 0% { transform: translateY(-20vh) rotate(0); opacity: 0 } 10% { opacity: 1 } 100% { transform: translateY(110vh) rotate(720deg); opacity: 0.8 } }
 .animate-coin-fall { animation: coin-fall 2.2s ease-in forwards; }
 @keyframes shake { 0%,100% { transform: translateX(0) } 20%,60% { transform: translateX(-6px) } 40%,80% { transform: translateX(6px) } }
