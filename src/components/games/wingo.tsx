@@ -1,8 +1,8 @@
-// WinGo Component - Live Global Trend & Synced Results
+// WinGo Component - Clean Trend, Win/Loss Payouts & 50-Result Arrow Pagination
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Clock, Minus, Plus, TrendingUp, BarChart3, Globe, Flame, RefreshCw } from "lucide-react";
+import { Clock, Minus, Plus, TrendingUp, BarChart3, Globe, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useApp, errMsg } from "@/lib/app-context";
 import { beep, fmt } from "@/lib/sound";
@@ -23,7 +23,6 @@ type Sel = { kind: "number" | "size" | "color"; value: string } | null;
 
 const BASES = [1, 10, 100, 1000];
 const MULTS = [1, 5, 10, 20, 50, 100];
-const DEPTHS = [20, 30, 50, 100] as const;
 
 // Official WinGo Mode Codes & Endpoints
 const MODE_CODES: Record<number, string> = {
@@ -41,8 +40,7 @@ const GLOBAL_FEED_URLS: Record<number, string> = {
 };
 
 /**
- * Official WinGo Global Period Number Formatter
- * Format: YYYYMMDD + ModeCode (10005, 10001, 10002, 10003) + 4-digit round of day (0001-1440)
+ * Official WinGo Global Period Formatter
  */
 export function formatGlobalPeriod(rawPeriod: number, duration: number): string {
   const d = new Date(rawPeriod * duration * 1000);
@@ -70,13 +68,22 @@ export function WingoGame({ game }: { game: GameRow }) {
   const [qty, setQty] = useState(Math.max(1, Math.ceil(game.min_stake / 10)));
   const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState<"hist" | "chart" | "mine">("hist");
-  const [histLimit, setHistLimit] = useState<number>(30);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
+
+  // Pagination State (10 results per page, up to 50 results / 5 pages)
+  const [page, setPage] = useState<number>(1);
+  const [accumulatedHist, setAccumulatedHist] = useState<Hist[]>([]);
 
   const qc = useQueryClient();
   const after = useAfterPlay(game.slug);
   const lastPeriod = useRef<number | null>(null);
   const isTrx = game.slug === "trx";
+
+  // Reset pagination when duration changes
+  useEffect(() => {
+    setPage(1);
+    setAccumulatedHist([]);
+  }, [dur]);
 
   // Global time tick with server calibration
   useEffect(() => {
@@ -88,9 +95,9 @@ export function WingoGame({ game }: { game: GameRow }) {
   const remain = Math.max(0, Math.ceil((period + 1) * dur - now / 1000));
   const stake = base * qty;
 
-  // Fetch Live Global Results directly from the official feed
+  // Fetch Live Global Results
   const {
-    data: hist,
+    data: feedItems,
     refetch: refetchHist,
     isFetching: isHistLoading,
   } = useQuery({
@@ -118,7 +125,7 @@ export function WingoGame({ game }: { game: GameRow }) {
       }
 
       // Fallback to Supabase database if offline
-      const { data, error } = await supabase.rpc("wingo_history", { _game: game.slug, _duration: dur, _n: histLimit });
+      const { data, error } = await supabase.rpc("wingo_history", { _game: game.slug, _duration: dur, _n: 50 });
       if (error) throw error;
       return ((data as Hist[]) ?? []).map((h) => ({
         ...h,
@@ -128,6 +135,31 @@ export function WingoGame({ game }: { game: GameRow }) {
     refetchInterval: remain <= 3 ? 1000 : 4000,
   });
 
+  // Accumulate up to 50 unique results for pagination
+  useEffect(() => {
+    if (feedItems && feedItems.length > 0) {
+      setAccumulatedHist((prev) => {
+        const map = new Map<string, Hist>();
+        feedItems.forEach((item) => map.set(item.period, item));
+        prev.forEach((item) => {
+          if (!map.has(item.period)) map.set(item.period, item);
+        });
+        const merged = Array.from(map.values()).sort((a, b) => b.period.localeCompare(a.period));
+        return merged.slice(0, 50);
+      });
+    }
+  }, [feedItems]);
+
+  // Paginated Results (10 per page, max 50 total / 5 pages)
+  const pageSize = 10;
+  const totalPages = Math.max(1, Math.min(5, Math.ceil(accumulatedHist.length / pageSize)));
+  const currentPage = Math.min(page, totalPages);
+
+  const pagedHist = useMemo(() => {
+    return accumulatedHist.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  }, [accumulatedHist, currentPage, pageSize]);
+
+  // User Bets History
   const { data: myBets } = useQuery({
     queryKey: ["wingo-bets", game.slug, session?.user.id],
     enabled: !!session,
@@ -138,7 +170,7 @@ export function WingoGame({ game }: { game: GameRow }) {
           .select("*")
           .eq("game", game.slug)
           .order("created_at", { ascending: false })
-          .limit(20)
+          .limit(30)
       ).data ?? [],
   });
 
@@ -157,7 +189,7 @@ export function WingoGame({ game }: { game: GameRow }) {
             if (!r?.settled) return;
             after(r.balance);
             qc.invalidateQueries({ queryKey: ["wingo-bets", game.slug] });
-            const last = hist?.[0];
+            const last = accumulatedHist?.[0] ?? feedItems?.[0];
             setOutcome({
               win: r.won > 0,
               amount: r.won,
@@ -169,7 +201,7 @@ export function WingoGame({ game }: { game: GameRow }) {
       }
     }
     lastPeriod.current = period;
-  }, [period, session, hist]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [period, session, accumulatedHist, feedItems]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (session) {
@@ -218,44 +250,10 @@ export function WingoGame({ game }: { game: GameRow }) {
     setSel(s);
   };
 
-  // Trend Statistics
-  const trendStats = useMemo(() => {
-    const list = hist ?? [];
-    const counts = Array(10).fill(0);
-    let big = 0;
-    let small = 0;
-    let red = 0;
-    let green = 0;
-    let violet = 0;
-
-    list.forEach((item) => {
-      if (item.number >= 0 && item.number <= 9) counts[item.number]++;
-      if (item.number >= 5) big++;
-      else small++;
-      const cols = numColors(item.number);
-      if (cols.includes("red")) red++;
-      if (cols.includes("green")) green++;
-      if (cols.includes("violet")) violet++;
-    });
-
-    const total = list.length || 1;
-    let maxCount = -1;
-    let hotNumber = 0;
-    counts.forEach((c, idx) => {
-      if (c > maxCount) {
-        maxCount = c;
-        hotNumber = idx;
-      }
-    });
-
-    return { counts, big, small, red, green, violet, total, hotNumber, maxCount };
-  }, [hist]);
-
-  // Calculate Omission (Missing count) for each period
-  const omissionMatrix = useMemo(() => {
-    const list = hist ?? [];
-    if (!list.length) return [];
-    const reversed = [...list].reverse();
+  // Omission Matrix for current 10 visible rounds
+  const pagedOmissionMatrix = useMemo(() => {
+    if (!pagedHist.length) return [];
+    const reversed = [...pagedHist].reverse();
     const currMissing = Array(10).fill(0);
     const rowOmissions: Record<string, number[]> = {};
 
@@ -270,11 +268,11 @@ export function WingoGame({ game }: { game: GameRow }) {
       rowOmissions[row.period] = [...currMissing];
     });
 
-    return list.map((r) => ({
+    return pagedHist.map((r) => ({
       ...r,
       missing: rowOmissions[r.period] ?? Array(10).fill(1),
     }));
-  }, [hist]);
+  }, [pagedHist]);
 
   return (
     <div className="space-y-3">
@@ -308,7 +306,7 @@ export function WingoGame({ game }: { game: GameRow }) {
               </span>
             </div>
             <div className="mt-2 flex gap-1">
-              {(hist ?? []).slice(0, 5).map((h) => (
+              {(accumulatedHist.length ? accumulatedHist : feedItems ?? []).slice(0, 5).map((h) => (
                 <Ball key={h.period} n={h.number} size="sm" />
               ))}
             </div>
@@ -410,117 +408,86 @@ export function WingoGame({ game }: { game: GameRow }) {
       <div className="overflow-hidden rounded-2xl bg-card shadow-card">
         {/* GAME RESULTS TAB */}
         {tab === "hist" && (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gradient-primary text-xs text-primary-foreground">
-                <tr>
-                  <th className="px-3 py-2.5 text-left">Period</th>
-                  {isTrx && <th className="text-left">Block</th>}
-                  <th className="text-center">Number</th>
-                  <th className="text-center">Big/Small</th>
-                  <th className="text-center">Color</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(hist ?? []).map((h) => (
-                  <tr key={h.period} className="border-t border-border/60 hover:bg-secondary/20">
-                    <td className="px-3 py-2.5 font-mono text-xs">{h.period}</td>
-                    {isTrx && <td className="font-mono text-[10px] text-muted-foreground">{h.hash?.slice(-6)}</td>}
-                    <td className="text-center">
-                      <div className="flex justify-center">
-                        <Ball n={h.number} size="sm" />
-                      </div>
-                    </td>
-                    <td className="text-center">
-                      <span className={cn("inline-block rounded-md px-2 py-0.5 text-xs font-bold", h.number >= 5 ? "bg-gold/20 text-gold" : "bg-primary/20 text-primary")}>
-                        {h.number >= 5 ? t("game.big") : t("game.small")}
-                      </span>
-                    </td>
-                    <td className="text-center">
-                      <div className="flex justify-center gap-1">
-                        {numColors(h.number).map((c) => (
-                          <span key={c} className={cn("h-3 w-3 rounded-full shadow-sm", colorBg[c])} />
-                        ))}
-                      </div>
-                    </td>
+          <div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gradient-primary text-xs text-primary-foreground">
+                  <tr>
+                    <th className="px-3 py-2.5 text-left">Period</th>
+                    {isTrx && <th className="text-left">Block</th>}
+                    <th className="text-center">Number</th>
+                    <th className="text-center">Big/Small</th>
+                    <th className="text-center">Color</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {(pagedHist.length ? pagedHist : (feedItems ?? []).slice(0, 10)).map((h) => (
+                    <tr key={h.period} className="border-t border-border/60 hover:bg-secondary/20">
+                      <td className="px-3 py-2.5 font-mono text-xs">{h.period}</td>
+                      {isTrx && <td className="font-mono text-[10px] text-muted-foreground">{h.hash?.slice(-6)}</td>}
+                      <td className="text-center">
+                        <div className="flex justify-center">
+                          <Ball n={h.number} size="sm" />
+                        </div>
+                      </td>
+                      <td className="text-center">
+                        <span className={cn("inline-block rounded-md px-2 py-0.5 text-xs font-bold", h.number >= 5 ? "bg-gold/20 text-gold" : "bg-primary/20 text-primary")}>
+                          {h.number >= 5 ? t("game.big") : t("game.small")}
+                        </span>
+                      </td>
+                      <td className="text-center">
+                        <div className="flex justify-center gap-1">
+                          {numColors(h.number).map((c) => (
+                            <span key={c} className={cn("h-3 w-3 rounded-full shadow-sm", colorBg[c])} />
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination Controls */}
+            <div className="flex items-center justify-center gap-4 py-3 border-t border-border/50 bg-secondary/30">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage <= 1}
+                className="grid h-8 w-8 place-items-center rounded-lg bg-card text-foreground shadow-sm transition disabled:opacity-40"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <span className="text-xs font-bold text-muted-foreground font-mono">
+                {currentPage} / {totalPages}
+              </span>
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage >= totalPages}
+                className="grid h-8 w-8 place-items-center rounded-lg bg-card text-foreground shadow-sm transition disabled:opacity-40"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
           </div>
         )}
 
-        {/* TREND TAB */}
+        {/* TREND TAB (CLEAN VERSION - NO STATS/FREQUENCY, JUST PURE TREND CHART) */}
         {tab === "chart" && (
           <div className="p-3 space-y-3">
-            {/* Header Controls */}
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-2.5">
+            {/* Header with Duration & Sync */}
+            <div className="flex items-center justify-between border-b border-border/60 pb-2">
               <div className="flex items-center gap-1.5">
                 <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
                 <span className="text-xs font-bold uppercase tracking-wider text-foreground">Trend Chart</span>
                 <span className="text-[11px] text-muted-foreground font-mono">({dur}s)</span>
               </div>
-              <div className="flex items-center gap-1">
-                <button onClick={() => refetchHist()} disabled={isHistLoading} className="ml-1 text-muted-foreground hover:text-foreground p-1 flex items-center gap-1 text-xs" title="Refresh">
-                  <RefreshCw className={cn("h-3.5 w-3.5", isHistLoading && "animate-spin text-primary")} /> Sync
-                </button>
-              </div>
-            </div>
-
-            {/* Stats Overview */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              <div className="rounded-xl bg-secondary/50 p-2.5 border border-border/50">
-                <div className="flex justify-between text-[11px] font-semibold text-muted-foreground mb-1">
-                  <span>Big / Small</span>
-                  <span>{trendStats.total} rounds</span>
-                </div>
-                <div className="flex items-center justify-between font-bold text-xs mb-1.5">
-                  <span className="text-gold">Big: {trendStats.big} ({Math.round((trendStats.big / trendStats.total) * 100)}%)</span>
-                  <span className="text-primary">Small: {trendStats.small} ({Math.round((trendStats.small / trendStats.total) * 100)}%)</span>
-                </div>
-                <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden flex">
-                  <div className="bg-gold h-full" style={{ width: `${(trendStats.big / trendStats.total) * 100}%` }} />
-                  <div className="bg-primary h-full" style={{ width: `${(trendStats.small / trendStats.total) * 100}%` }} />
-                </div>
-              </div>
-
-              <div className="rounded-xl bg-secondary/50 p-2.5 border border-border/50">
-                <div className="text-[11px] font-semibold text-muted-foreground mb-1">Color Stats</div>
-                <div className="flex items-center justify-between text-xs font-bold pt-0.5">
-                  <span className="text-game-green flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-game-green" />{trendStats.green}</span>
-                  <span className="text-game-red flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-game-red" />{trendStats.red}</span>
-                  <span className="text-game-violet flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-game-violet" />{trendStats.violet}</span>
-                </div>
-              </div>
-
-              <div className="col-span-2 sm:col-span-1 rounded-xl bg-secondary/50 p-2.5 border border-border/50 flex items-center justify-between">
-                <div>
-                  <div className="text-[11px] font-semibold text-muted-foreground">Top Winning Ball</div>
-                  <div className="text-xs font-bold text-foreground mt-0.5">Number {trendStats.hotNumber} ({trendStats.maxCount} hits)</div>
-                </div>
-                <Ball n={trendStats.hotNumber} size="sm" />
-              </div>
-            </div>
-
-            {/* Frequency Bar for 0-9 */}
-            <div className="rounded-xl bg-secondary/40 p-2 border border-border/40">
-              <div className="text-[11px] font-semibold text-muted-foreground mb-1.5 flex items-center gap-1">
-                <Flame className="h-3.5 w-3.5 text-gold" /> Number Frequency (Hits in last {trendStats.total} rounds)
-              </div>
-              <div className="grid grid-cols-10 gap-1 text-center font-mono">
-                {trendStats.counts.map((cnt, n) => (
-                  <div
-                    key={n}
-                    className={cn(
-                      "rounded-lg py-1 px-0.5 text-xs transition",
-                      cnt === trendStats.maxCount && cnt > 0 ? "bg-gold/20 border border-gold/40 text-gold font-bold" : "bg-card/70"
-                    )}
-                  >
-                    <div className="text-[10px] text-muted-foreground">{n}</div>
-                    <div className="font-bold">{cnt}</div>
-                  </div>
-                ))}
-              </div>
+              <button
+                onClick={() => refetchHist()}
+                disabled={isHistLoading}
+                className="text-muted-foreground hover:text-foreground p-1 flex items-center gap-1 text-xs"
+              >
+                <RefreshCw className={cn("h-3.5 w-3.5", isHistLoading && "animate-spin text-primary")} /> Sync
+              </button>
             </div>
 
             {/* Visual Trend Chart with SVG Polyline */}
@@ -539,11 +506,11 @@ export function WingoGame({ game }: { game: GameRow }) {
                 </div>
 
                 <div className="relative">
-                  {omissionMatrix.length > 1 && (
+                  {pagedOmissionMatrix.length > 1 && (
                     <div className="absolute top-0 bottom-0 right-2 left-[12.9rem] pointer-events-none z-10">
-                      <svg className="w-full h-full" viewBox={`0 0 1000 ${omissionMatrix.length * 36}`} preserveAspectRatio="none">
+                      <svg className="w-full h-full" viewBox={`0 0 1000 ${pagedOmissionMatrix.length * 36}`} preserveAspectRatio="none">
                         <polyline
-                          points={omissionMatrix
+                          points={pagedOmissionMatrix
                             .map((r, idx) => {
                               const x = r.number * 100 + 50;
                               const y = idx * 36 + 18;
@@ -561,7 +528,7 @@ export function WingoGame({ game }: { game: GameRow }) {
                     </div>
                   )}
 
-                  {omissionMatrix.map((h, rowIdx) => (
+                  {pagedOmissionMatrix.map((h, rowIdx) => (
                     <div
                       key={h.period}
                       className={cn(
@@ -601,39 +568,90 @@ export function WingoGame({ game }: { game: GameRow }) {
                 </div>
               </div>
             </div>
+
+            {/* Pagination Controls */}
+            <div className="flex items-center justify-center gap-4 py-2 bg-secondary/30 rounded-xl">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage <= 1}
+                className="grid h-8 w-8 place-items-center rounded-lg bg-card text-foreground shadow-sm transition disabled:opacity-40"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <span className="text-xs font-bold text-muted-foreground font-mono">
+                {currentPage} / {totalPages}
+              </span>
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage >= totalPages}
+                className="grid h-8 w-8 place-items-center rounded-lg bg-card text-foreground shadow-sm transition disabled:opacity-40"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
           </div>
         )}
 
-        {/* MY BETS TAB */}
+        {/* MY BETS TAB WITH + WIN & - LOSS ICONS */}
         {tab === "mine" &&
           (!myBets?.length ? (
             <p className="py-8 text-center text-sm text-muted-foreground">No bets yet</p>
           ) : (
             <ul className="divide-y divide-border text-sm">
-              {myBets.map((b) => (
-                <li key={b.id} className="flex items-center gap-3 px-3 py-2.5">
-                  <span
-                    className={cn(
-                      "grid h-10 w-10 shrink-0 place-items-center rounded-lg text-xs font-bold uppercase text-primary-foreground",
-                      b.kind === "number" ? colorBg[numColors(Number(b.value))[0]!] : colorBg[b.value]
-                    )}
-                  >
-                    {b.value}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="font-mono text-xs">{b.period}</div>
-                    <div className="text-[11px] text-muted-foreground">
-                      {label(b.duration)} · {new Date(b.created_at ?? "").toLocaleTimeString()}
+              {myBets.map((b) => {
+                const isSettled = Boolean(b.settled);
+                const isWin = Boolean(
+                  b.payout > 0 ||
+                  b.won === true ||
+                  (typeof b.won === "number" && b.won > 0) ||
+                  b.status === "won"
+                );
+                const winAmount = b.payout ?? b.won ?? b.win_amount ?? (isWin ? b.stake * 1.96 : 0);
+
+                return (
+                  <li key={b.id} className="flex items-center gap-3 px-3 py-3 hover:bg-secondary/20 transition">
+                    <span
+                      className={cn(
+                        "grid h-10 w-10 shrink-0 place-items-center rounded-xl text-xs font-bold uppercase text-primary-foreground shadow-sm",
+                        b.kind === "number" ? colorBg[numColors(Number(b.value))[0]!] : colorBg[b.value]
+                      )}
+                    >
+                      {b.value}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="font-mono text-xs font-semibold">{b.period}</div>
+                      <div className="text-[11px] text-muted-foreground">
+                        {label(b.duration)} · {new Date(b.created_at ?? "").toLocaleTimeString()}
+                      </div>
                     </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-bold tabular-nums">{fmt(b.stake)}</div>
-                    <div className={cn("text-[11px] font-semibold", b.settled ? "text-muted-foreground" : "text-primary")}>
-                      {b.settled ? "Settled" : "Waiting"}
+                    <div className="text-right">
+                      {isSettled ? (
+                        isWin ? (
+                          <div className="flex items-center justify-end gap-0.5 font-bold text-emerald-500 tabular-nums text-sm">
+                            <Plus className="h-3.5 w-3.5 stroke-[3]" />
+                            <span>{fmt(winAmount)}</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-end gap-0.5 font-bold text-destructive tabular-nums text-sm">
+                            <Minus className="h-3.5 w-3.5 stroke-[3]" />
+                            <span>{fmt(b.stake)}</span>
+                          </div>
+                        )
+                      ) : (
+                        <div className="text-sm font-bold tabular-nums text-foreground">{fmt(b.stake)}</div>
+                      )}
+                      <div
+                        className={cn(
+                          "text-[10px] font-bold uppercase mt-0.5",
+                          !isSettled ? "text-amber-500" : isWin ? "text-emerald-500" : "text-destructive"
+                        )}
+                      >
+                        {!isSettled ? "Waiting" : isWin ? "Win" : "Loss"}
+                      </div>
                     </div>
-                  </div>
-                </li>
-              ))}
+                  </li>
+                );
+              })}
             </ul>
           ))}
       </div>
