@@ -71,7 +71,7 @@ function RedAviatorPlane({ crashed }: { crashed?: boolean }) {
   );
 }
 
-/* ---------------- Aviator Continuous Loop ---------------- */
+/* ---------------- Aviator Continuous Loop (10s Betting Phase) ---------------- */
 export function CrashGame({ game }: { game: GameRow }) {
   const { t } = useApp();
   const after = useAfterPlay(game.slug);
@@ -81,9 +81,9 @@ export function CrashGame({ game }: { game: GameRow }) {
   const [mult, setMult] = useState(1);
   const [past, setPast] = useState<number[]>([1.35, 2.14, 1.12, 6.42, 1.88, 14.2, 1.25, 3.8]);
 
-  // Round states: "betting" (5s countdown) | "flying" | "crashed"
+  // Round states: "betting" (10s countdown) | "flying" | "crashed"
   const [phase, setPhase] = useState<"betting" | "flying" | "crashed">("betting");
-  const [countdown, setCountdown] = useState(5.0);
+  const [countdown, setCountdown] = useState(10.0);
 
   // User betting state
   const [betPlaced, setBetPlaced] = useState(false);
@@ -106,11 +106,10 @@ export function CrashGame({ game }: { game: GameRow }) {
     let timer: NodeJS.Timeout;
 
     if (phase === "betting") {
-      setCountdown(5.0);
+      setCountdown(10.0);
       setMult(1);
       setHasCashedOut(false);
 
-      // If user queued bet from previous flight, activate it now
       if (queuedForNext) {
         setBetPlaced(true);
         setQueuedForNext(false);
@@ -118,7 +117,7 @@ export function CrashGame({ game }: { game: GameRow }) {
 
       const startTime = Date.now();
       const tick = setInterval(() => {
-        const remaining = Math.max(0, 5.0 - (Date.now() - startTime) / 1000);
+        const remaining = Math.max(0, 10.0 - (Date.now() - startTime) / 1000);
         setCountdown(remaining);
         if (remaining <= 0) {
           clearInterval(tick);
@@ -130,7 +129,7 @@ export function CrashGame({ game }: { game: GameRow }) {
     }
 
     if (phase === "crashed") {
-      // Show FLEW AWAY for 2.5s, then start next 5-second countdown
+      // Show FLEW AWAY for 2.5s, then start next 10-second countdown
       timer = setTimeout(() => {
         setPhase("betting");
       }, 2500);
@@ -138,7 +137,7 @@ export function CrashGame({ game }: { game: GameRow }) {
     }
   }, [phase, queuedForNext]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Launch the plane automatically after 5s
+  // Launch the plane automatically after 10s
   const launchFlight = async () => {
     startRef.current = Date.now();
     setPhase("flying");
@@ -177,13 +176,11 @@ export function CrashGame({ game }: { game: GameRow }) {
       const current = Math.floor(Math.exp(0.09 * elapsed) * 100) / 100;
       setMult(current);
 
-      // Check auto cashout
       const targetAuto = Number(autoRef.current);
       if (targetAuto && current >= targetAuto && betPlacedRef.current && !hasCashedOut && sidRef.current) {
         check(true);
       }
 
-      // If playing as spectator (or server delay), trigger crash at simulated point
       if (!sidRef.current && current >= simCrashRef.current) {
         triggerCrash(simCrashRef.current);
       }
@@ -284,7 +281,7 @@ export function CrashGame({ game }: { game: GameRow }) {
 
       {/* Aviator Radar Flight Arena */}
       <div className="relative aspect-[16/10] overflow-hidden rounded-2xl border border-white/10 bg-[#0a0d14] shadow-2xl">
-        {/* Cockpit Radar Grid Lines */}
+        {/* Radar Grid Lines */}
         <div
           className="pointer-events-none absolute inset-0 opacity-20"
           style={{
@@ -294,17 +291,17 @@ export function CrashGame({ game }: { game: GameRow }) {
           }}
         />
 
-        {/* 5-Second Red Progress Bar between rounds */}
+        {/* 10-Second Red Progress Bar */}
         {phase === "betting" && (
           <div className="absolute top-0 inset-x-0 h-1.5 bg-white/10 overflow-hidden">
             <div
               className="h-full bg-rose-500 transition-all duration-75 ease-linear shadow-[0_0_10px_#ef4444]"
-              style={{ width: `${(countdown / 5.0) * 100}%` }}
+              style={{ width: `${(countdown / 10.0) * 100}%` }}
             />
           </div>
         )}
 
-        {/* Red Glowing Flight Curve Canvas */}
+        {/* Red Glowing Flight Curve */}
         <svg
           viewBox="0 0 100 65"
           className="absolute inset-0 h-full w-full pointer-events-none"
@@ -335,7 +332,7 @@ export function CrashGame({ game }: { game: GameRow }) {
           )}
         </svg>
 
-        {/* The Animated Red Aviator Plane */}
+        {/* Animated Red Aviator Plane */}
         {phase === "flying" && (
           <div
             className="absolute transition-all duration-75 pointer-events-none"
@@ -349,7 +346,7 @@ export function CrashGame({ game }: { game: GameRow }) {
           </div>
         )}
 
-        {/* Center Multiplier & Status Display */}
+        {/* Center Multiplier & Status */}
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center select-none">
           {phase === "crashed" ? (
             <div className="animate-in fade-in zoom-in duration-200">
@@ -393,7 +390,6 @@ export function CrashGame({ game }: { game: GameRow }) {
 
       {/* Aviator Betting Dashboard */}
       <div className="rounded-2xl border border-white/10 bg-[#121620] p-4 text-white shadow-xl">
-        {/* Quick chip buttons */}
         <div className="mb-3 flex items-center justify-between gap-1.5 overflow-x-auto pb-1 no-scrollbar">
           {[100, 200, 500, 1000, 2000, 5000].map((v) => (
             <button
@@ -416,7 +412,6 @@ export function CrashGame({ game }: { game: GameRow }) {
           ))}
         </div>
 
-        {/* Stake Adjustment & Auto Cashout */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
           <div>
             <div className="text-[11px] font-bold uppercase tracking-wider text-white/50 mb-1">
@@ -471,9 +466,7 @@ export function CrashGame({ game }: { game: GameRow }) {
           </div>
         </div>
 
-        {/* Context-aware Action Button */}
         {phase === "flying" && betPlaced && !hasCashedOut ? (
-          /* Active Flying Bet -> Big Cash Out */
           <button
             type="button"
             onClick={() => check(true)}
@@ -486,7 +479,6 @@ export function CrashGame({ game }: { game: GameRow }) {
           </button>
         ) : phase === "betting" ? (
           betPlaced ? (
-            /* Bet Placed in 5s Window -> Option to Cancel */
             <button
               type="button"
               onClick={() => {
@@ -499,7 +491,6 @@ export function CrashGame({ game }: { game: GameRow }) {
               <span className="text-xs font-semibold opacity-90">WAITING FOR TAKEOFF (₨{fmt(stake)})</span>
             </button>
           ) : (
-            /* Place Bet in 5s Window */
             <button
               type="button"
               onClick={() => {
@@ -513,7 +504,6 @@ export function CrashGame({ game }: { game: GameRow }) {
             </button>
           )
         ) : queuedForNext ? (
-          /* Bet queued for next round during flight/crash */
           <button
             type="button"
             onClick={() => {
@@ -526,7 +516,6 @@ export function CrashGame({ game }: { game: GameRow }) {
             <span className="text-xs font-semibold opacity-90">BET ₨{fmt(stake)} QUEUED</span>
           </button>
         ) : (
-          /* Queue bet for next round while flying */
           <button
             type="button"
             onClick={() => {
