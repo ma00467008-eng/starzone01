@@ -96,6 +96,7 @@ export function TopBar() {
           <div className="flex items-center gap-2">
             <Link
               to="/add-coins"
+              search={{ mode: "add" }}
               className="flex items-center gap-1.5 rounded-full bg-secondary py-1 pl-3 pr-1 text-sm text-secondary-foreground hover:bg-secondary/80 transition"
             >
               <Balance />
