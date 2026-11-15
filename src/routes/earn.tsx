@@ -13,9 +13,9 @@ import { CoinIcon } from "@/components/sz/bits";
 export const Route = createFileRoute("/earn")({
   head: () => ({ meta: [
     { title: "Invite & Earn — STAR ZONE" },
-    { name: "description", content: "Invite friends to STAR ZONE and earn virtual coin commission across 6 team levels." },
+    { name: "description", content: "Invite friends to STAR ZONE and earn virtual coin commission across team levels." },
     { property: "og:title", content: "Invite & Earn — STAR ZONE" },
-    { property: "og:description", content: "Invite friends and earn virtual coin commission across 6 team levels." },
+    { property: "og:description", content: "Invite friends and earn virtual coin commission across team levels." },
     { property: "og:type", content: "website" },
     { name: "twitter:card", content: "summary" },
   ] }),
@@ -107,7 +107,6 @@ function EarnBody() {
           ))}
         </div>
         <div className="grid grid-cols-3 gap-2 p-3 text-center text-[11px]">
-          <Mini label={t("earn.rate")} value={`${(cur.rate * 100).toFixed(cur.rate < 0.001 ? 4 : 2)}%`} />
           <Mini label={t("earn.members")} value={fmt(cur.members)} />
           <Mini label={t("earn.deposit_users")} value={fmt(cur.deposit_users)} />
           <Mini label={t("earn.deposit_amount")} value={fmt(cur.deposit_amount)} />
@@ -136,9 +135,6 @@ function EarnBody() {
       <Card>
         <h3 className="mb-2 flex items-center gap-2 font-display text-sm font-bold"><Info className="h-4 w-4 text-primary" />{t("earn.rules")}</h3>
         <p className="text-xs leading-relaxed text-muted-foreground">{t("earn.rules_body")}</p>
-        <div className="mt-3 grid grid-cols-3 gap-2 text-center text-[11px]">
-          {data.levels.map((l) => <Mini key={l.level} label={`${t("earn.level")} ${l.level}`} value={`${(l.rate * 100).toFixed(l.rate < 0.001 ? 4 : 2)}%`} />)}
-        </div>
       </Card>
     </div>
   );
