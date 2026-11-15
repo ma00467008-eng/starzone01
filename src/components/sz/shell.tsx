@@ -96,9 +96,20 @@ export function PrimaryButton({ children, onClick, disabled, loading, className,
 export function useRounds(game: string) {
   const { session } = useApp();
   return useQuery({
-    queryKey: ["rounds", game, session?.user.id],
-    enabled: !!session,
-    queryFn: async () => (await supabase.from("game_rounds").select("*").eq("game", game).order("created_at", { ascending: false }).limit(15)).data ?? [],
+    queryKey: ["rounds", game, session?.user?.id],
+    enabled: !!session?.user?.id,
+    queryFn: async () =>
+      session?.user?.id
+        ? (
+            await supabase
+              .from("game_rounds")
+              .select("*")
+              .eq("game", game)
+              .eq("user_id", session.user.id)
+              .order("created_at", { ascending: false })
+              .limit(15)
+          ).data ?? []
+        : [],
   });
 }
 
