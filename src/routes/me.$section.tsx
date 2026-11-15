@@ -76,8 +76,23 @@ function Notifications() {
 
 function useAllRounds() {
   const { session } = useApp();
-  return useQuery({ queryKey: ["all-rounds", session?.user.id], queryFn: async () => (await supabase.from("game_rounds").select("*").order("created_at", { ascending: false }).limit(1000)).data ?? [] });
+  return useQuery({
+    queryKey: ["all-rounds", session?.user?.id],
+    enabled: !!session?.user?.id,
+    queryFn: async () =>
+      session?.user?.id
+        ? (
+            await supabase
+              .from("game_rounds")
+              .select("*")
+              .eq("user_id", session.user.id)
+              .order("created_at", { ascending: false })
+              .limit(1000)
+          ).data ?? []
+        : [],
+  });
 }
+
 
 function History() {
   const { t } = useApp();
