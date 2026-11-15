@@ -397,10 +397,10 @@ export function WingoGame({ game }: { game: GameRow }) {
         </div>
         <div className="flex overflow-hidden rounded-full shadow-card">
           <button onClick={() => open({ kind: "size", value: "big" })} className="flex-1 bg-gold py-3 font-bold text-night">
-            {t("game.big")} <span className="text-xs opacity-75">×2</span>
+            {t("game.big")} <span className="text-xs opacity-75">×1.96</span>
           </button>
           <button onClick={() => open({ kind: "size", value: "small" })} className="flex-1 bg-primary py-3 font-bold text-primary-foreground">
-            {t("game.small")} <span className="text-xs opacity-75">×2</span>
+            {t("game.small")} <span className="text-xs opacity-75">×1.96</span>
           </button>
         </div>
       </div>
@@ -629,56 +629,92 @@ export function WingoGame({ game }: { game: GameRow }) {
           ) : (
             <ul className="divide-y divide-border text-sm">
               {myBets.map((b: any) => {
-                // Settle check
+                const formattedPeriod = formatBetPeriod(b.period, b.duration || dur);
+
+                // Match against historical drawn results (from live feed or database)
+                const histMatch = (accumulatedHist.length ? accumulatedHist : feedItems ?? []).find(
+                  (h) => h.period === formattedPeriod || String(h.period) === String(b.period) || h.raw === Number(b.period)
+                );
+
+                // Calculate win / loss based on the actual drawn number
+                let calculatedWin: boolean | null = null;
+                let calculatedPayout = 0;
+
+                if (histMatch != null && typeof histMatch.number === "number") {
+                  const n = histMatch.number;
+                  let win = false;
+                  let mult = 0;
+
+                  if (b.kind === "number") {
+                    if (Number(b.value) === n) {
+                      win = true;
+                      mult = 8.82;
+                    }
+                  } else if (b.kind === "size") {
+                    if ((b.value === "big" && n >= 5) || (b.value === "small" && n < 5)) {
+                      win = true;
+                      mult = 1.96;
+                    }
+                  } else if (b.kind === "color") {
+                    if (b.value === "violet") {
+                      if (n === 0 || n === 5) {
+                        win = true;
+                        mult = 4.41;
+                      }
+                    } else if (b.value === "green") {
+                      if (n === 5) {
+                        win = true;
+                        mult = 1.47;
+                      } else if (n % 2 === 1) {
+                        win = true;
+                        mult = 1.96;
+                      }
+                    } else if (b.value === "red") {
+                      if (n === 0) {
+                        win = true;
+                        mult = 1.47;
+                      } else if (n % 2 === 0) {
+                        win = true;
+                        mult = 1.96;
+                      }
+                    }
+                  }
+
+                  calculatedWin = win;
+                  calculatedPayout = win ? Math.floor(b.stake * mult) : 0;
+                }
+
                 const isSettled = Boolean(
                   b.settled === true ||
-                  b.status === "settled" ||
-                  b.status === "win" ||
-                  b.status === "won" ||
-                  b.status === "loss" ||
-                  b.status === "lost" ||
-                  b.is_settled === true ||
-                  b.settled_at != null ||
-                  (b.payout !== null && b.payout !== undefined) ||
-                  (b.won !== null && b.won !== undefined) ||
-                  (b.is_win !== null && b.is_win !== undefined)
+                  histMatch != null ||
+                  (b.period && period > Number(b.period))
                 );
 
-                // Win check
-                const isWin = Boolean(
-                  b.is_win === true ||
-                  b.won === true ||
-                  b.status === "win" ||
-                  b.status === "won" ||
-                  b.result === "win" ||
-                  b.result === "won" ||
-                  Number(b.payout) > 0 ||
-                  Number(b.win) > 0 ||
-                  Number(b.won) > 0 ||
-                  Number(b.win_amount) > 0 ||
-                  Number(b.won_amount) > 0 ||
-                  Number(b.payout_amount) > 0 ||
-                  Number(b.profit) > 0 ||
-                  (typeof b.won === "number" && b.won > 0)
-                );
+                const isWin =
+                  calculatedWin !== null
+                    ? calculatedWin
+                    : Boolean(
+                        b.is_win === true ||
+                        b.won === true ||
+                        b.status === "win" ||
+                        b.status === "won" ||
+                        b.result === "win" ||
+                        b.result === "won" ||
+                        Number(b.payout) > 0 ||
+                        Number(b.win) > 0 ||
+                        Number(b.profit) > 0
+                      );
 
-                // Win payout calculation
-                const payoutVal =
-                  (Number(b.payout) > 0 ? Number(b.payout) : null) ??
-                  (Number(b.win_amount) > 0 ? Number(b.win_amount) : null) ??
-                  (Number(b.won_amount) > 0 ? Number(b.won_amount) : null) ??
-                  (Number(b.payout_amount) > 0 ? Number(b.payout_amount) : null) ??
-                  (Number(b.profit) > 0 ? Number(b.profit) : null) ??
-                  (typeof b.won === "number" && b.won > 0 ? b.won : null) ??
-                  (Number(b.win) > 0 ? Number(b.win) : null) ??
-                  (b.kind === "number"
-                    ? b.stake * 9
-                    : b.value === "violet"
-                    ? b.stake * 4.5
-                    : b.stake * 1.96);
-
-                const displayWinAmount = isWin ? payoutVal : 0;
-                const formattedPeriod = formatBetPeriod(b.period, b.duration || dur);
+                const displayWinAmount =
+                  calculatedWin !== null && calculatedWin
+                    ? calculatedPayout
+                    : (Number(b.payout) > 0 ? Number(b.payout) : null) ??
+                      (Number(b.win_amount) > 0 ? Number(b.win_amount) : null) ??
+                      (b.kind === "number"
+                        ? Math.floor(b.stake * 8.82)
+                        : b.value === "violet"
+                        ? Math.floor(b.stake * 4.41)
+                        : Math.floor(b.stake * 1.96));
 
                 return (
                   <li key={b.id} className="flex items-center gap-3 px-3 py-3 hover:bg-secondary/20 transition">
@@ -692,8 +728,21 @@ export function WingoGame({ game }: { game: GameRow }) {
                     </span>
                     <div className="min-w-0 flex-1">
                       <div className="font-mono text-xs font-semibold">{formattedPeriod}</div>
-                      <div className="text-[11px] text-muted-foreground">
-                        {label(b.duration || dur)} · {new Date(b.created_at ?? "").toLocaleTimeString()}
+                      <div className="text-[11px] text-muted-foreground flex items-center gap-1.5 mt-0.5">
+                        <span>{label(b.duration || dur)}</span>
+                        <span>·</span>
+                        <span>{new Date(b.created_at ?? "").toLocaleTimeString()}</span>
+                        {histMatch != null && (
+                          <>
+                            <span>·</span>
+                            <span className="inline-flex items-center gap-1 font-bold text-foreground">
+                              Result:
+                              <span className={cn("grid h-4 w-4 place-items-center rounded-full text-[9px] text-primary-foreground", colorBg[numColors(histMatch.number)[0]!])}>
+                                {histMatch.number}
+                              </span>
+                            </span>
+                          </>
+                        )}
                       </div>
                     </div>
                     <div className="text-right">
