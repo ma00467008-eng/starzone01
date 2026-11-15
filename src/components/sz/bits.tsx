@@ -2,7 +2,6 @@ import { Link } from "@tanstack/react-router";
 import { Bell, Plus, Star } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useApp } from "@/lib/app-context";
-import { fmt } from "@/lib/sound";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
@@ -12,13 +11,16 @@ export function Logo({ className }: { className?: string }) {
   const logo: string | undefined = settings["site"]?.logo_url;
   return (
     <Link to="/" className={cn("flex items-center gap-2", className)}>
-      {logo ? <img src={logo} alt={name} className="h-8 w-8 rounded-lg object-cover" /> : (
+      {logo ? (
+        <img src={logo} alt={name} className="h-8 w-8 rounded-lg object-cover" />
+      ) : (
         <span className="grid h-8 w-8 place-items-center rounded-lg bg-gradient-primary shadow-glow">
           <Star className="h-4.5 w-4.5 fill-primary-foreground text-primary-foreground" />
         </span>
       )}
       <span className="font-display text-lg font-extrabold tracking-tight text-foreground">
-        {name.split(" ")[0]}<span className="text-primary-deep"> {name.split(" ").slice(1).join(" ")}</span>
+        {name.split(" ")[0]}
+        <span className="text-primary-deep"> {name.split(" ").slice(1).join(" ")}</span>
       </span>
     </Link>
   );
@@ -26,15 +28,28 @@ export function Logo({ className }: { className?: string }) {
 
 export function CoinIcon({ className }: { className?: string }) {
   return (
-    <span className={cn("inline-grid h-4.5 w-4.5 place-items-center rounded-full bg-gold text-[9px] font-black text-night ring-2 ring-gold/30", className)}>★</span>
+    <span
+      className={cn(
+        "inline-flex items-center justify-center rounded bg-emerald-500/15 px-1 py-0.5 text-[10px] font-black text-emerald-400 border border-emerald-500/25 leading-none",
+        className
+      )}
+    >
+      Rs
+    </span>
   );
 }
 
 export function Balance({ className }: { className?: string }) {
   const { profile } = useApp();
+  const amount = Number(profile?.balance ?? 0).toLocaleString("en-PK", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+
   return (
-    <span className={cn("inline-flex items-center gap-1.5 font-display font-bold tabular-nums", className)}>
-      <CoinIcon />{fmt(profile?.balance)}
+    <span className={cn("inline-flex items-center gap-1.5 font-display font-bold tabular-nums text-foreground", className)}>
+      <CoinIcon />
+      <span>{amount}</span>
     </span>
   );
 }
@@ -42,7 +57,12 @@ export function Balance({ className }: { className?: string }) {
 const HUES = [230, 210, 255, 195, 245, 220, 265, 200];
 export function Avatar({ n, name, className }: { n?: number | undefined; name?: string | undefined; className?: string }) {
   return (
-    <span className={cn("grid place-items-center rounded-full font-display font-bold text-primary-foreground", className)} style={{ background: `linear-gradient(135deg, oklch(0.8 0.12 ${HUES[((n ?? 1) - 1) % 8]}), oklch(0.5 0.15 ${(HUES[((n ?? 1) - 1) % 8] ?? 230) + 15}))` }}>
+    <span
+      className={cn("grid place-items-center rounded-full font-display font-bold text-primary-foreground", className)}
+      style={{
+        background: `linear-gradient(135deg, oklch(0.8 0.12 ${HUES[((n ?? 1) - 1) % 8]}), oklch(0.5 0.15 ${(HUES[((n ?? 1) - 1) % 8] ?? 230) + 15}))`,
+      }}
+    >
       {(name || "S").slice(0, 1).toUpperCase()}
     </span>
   );
@@ -66,7 +86,7 @@ export function useUnreadNotifications() {
 }
 
 export function TopBar() {
-  const { session, t } = useApp();
+  const { session } = useApp();
   const { data: unread } = useUnreadNotifications();
   return (
     <header className="sticky top-0 z-30 border-b border-border/60 bg-card/90 backdrop-blur-md">
@@ -74,17 +94,38 @@ export function TopBar() {
         <Logo />
         {session ? (
           <div className="flex items-center gap-2">
-            <Link to="/account" className="flex items-center gap-1.5 rounded-full bg-secondary py-1 pl-3 pr-1 text-sm text-secondary-foreground">
+            <Link
+              to="/add-coins"
+              className="flex items-center gap-1.5 rounded-full bg-secondary py-1 pl-3 pr-1 text-sm text-secondary-foreground hover:bg-secondary/80 transition"
+            >
               <Balance />
-              <span className="grid h-6 w-6 place-items-center rounded-full bg-gradient-primary text-primary-foreground" aria-label={t("home.add_coins")}><Plus className="h-3.5 w-3.5" /></span>
+              <span
+                className="grid h-6 w-6 place-items-center rounded-full bg-gradient-primary text-primary-foreground"
+                aria-label="Deposit Rs"
+              >
+                <Plus className="h-3.5 w-3.5" />
+              </span>
             </Link>
-            <Link to="/account" className="relative grid h-9 w-9 place-items-center rounded-full bg-secondary text-secondary-foreground" aria-label={t("acc.notifications")}>
+            <Link
+              to="/account"
+              className="relative grid h-9 w-9 place-items-center rounded-full bg-secondary text-secondary-foreground"
+              aria-label="Notifications"
+            >
               <Bell className="h-4.5 w-4.5" />
-              {!!unread && <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">{unread > 9 ? "9+" : unread}</span>}
+              {!!unread && (
+                <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
+                  {unread > 9 ? "9+" : unread}
+                </span>
+              )}
             </Link>
           </div>
         ) : (
-          <Link to="/auth" className="rounded-full bg-gradient-primary px-4 py-1.5 text-sm font-semibold text-primary-foreground shadow-glow">{t("auth.login")}</Link>
+          <Link
+            to="/auth"
+            className="rounded-full bg-gradient-primary px-4 py-1.5 text-sm font-semibold text-primary-foreground shadow-glow"
+          >
+            Login
+          </Link>
         )}
       </div>
     </header>
@@ -106,11 +147,20 @@ export function PageHeader({ title, back = "/account" }: { title: string; back?:
 
 export function Empty({ text }: { text?: string }) {
   const { t } = useApp();
-  return <div className="rounded-2xl border border-dashed border-border bg-card p-8 text-center text-sm text-muted-foreground">{text || t("common.empty")}</div>;
+  return (
+    <div className="rounded-2xl border border-dashed border-border bg-card p-8 text-center text-sm text-muted-foreground">
+      {text || t("common.empty")}
+    </div>
+  );
 }
 
 export function StatusPill({ s }: { s: string }) {
   const { t } = useApp();
-  const c = s === "approved" || s === "open" ? "bg-success/10 text-success" : s === "rejected" || s === "closed" ? "bg-destructive/10 text-destructive" : "bg-gold/15 text-foreground";
+  const c =
+    s === "approved" || s === "open"
+      ? "bg-success/10 text-success"
+      : s === "rejected" || s === "closed"
+      ? "bg-destructive/10 text-destructive"
+      : "bg-gold/15 text-foreground";
   return <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-semibold", c)}>{t(`status.${s}`)}</span>;
 }
