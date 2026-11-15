@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Bomb, Gem, Plane } from "lucide-react";
+import { Bomb, Gem, Minus, Plus, Zap } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useApp, errMsg } from "@/lib/app-context";
 import { beep, fmt } from "@/lib/sound";
@@ -8,88 +8,420 @@ import { cn } from "@/lib/utils";
 import { Card, PrimaryButton, StakeInput, useAfterPlay } from "@/components/sz/shell";
 import type { GameRow } from "./types";
 
-/* ---------------- Sky Crash ---------------- */
+/* ---------------- Authentic Red Aviator Plane ---------------- */
+function RedAviatorPlane({ crashed }: { crashed?: boolean }) {
+  return (
+    <div className={cn("relative transition-transform duration-150", crashed && "opacity-0 scale-75")}>
+      <svg
+        viewBox="0 0 130 65"
+        className="h-10 w-20 sm:h-12 sm:w-24 drop-shadow-[0_6px_14px_rgba(239,68,68,0.7)]"
+      >
+        <defs>
+          <linearGradient id="bodyRed" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#991b1b" />
+            <stop offset="45%" stopColor="#ef4444" />
+            <stop offset="100%" stopColor="#f87171" />
+          </linearGradient>
+          <linearGradient id="wingRed" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#dc2626" />
+            <stop offset="100%" stopColor="#7f1d1d" />
+          </linearGradient>
+          <radialGradient id="exhaustGlow" cx="0.5" cy="0.5" r="0.5">
+            <stop offset="0%" stopColor="#fb923c" stopOpacity="0.9" />
+            <stop offset="100%" stopColor="#ea580c" stopOpacity="0" />
+          </radialGradient>
+        </defs>
+
+        {/* Jet exhaust smoke / glow */}
+        <ellipse cx="6" cy="33" rx="10" ry="4" fill="url(#exhaustGlow)" className="animate-pulse" />
+
+        {/* Aerodynamic Fuselage */}
+        <path
+          d="M14 31 Q45 22 92 27 Q114 29 122 33 Q114 37 92 39 Q45 44 14 35 Z"
+          fill="url(#bodyRed)"
+        />
+
+        {/* Glass Cockpit Canopy */}
+        <path
+          d="M62 26 Q74 19 88 26 Q74 29 62 26 Z"
+          fill="#38bdf8"
+          opacity="0.9"
+        />
+
+        {/* Main Lower Wing */}
+        <path
+          d="M52 32 L26 52 Q30 55 42 51 L70 35 Z"
+          fill="url(#wingRed)"
+        />
+
+        {/* Upper Wing */}
+        <path
+          d="M56 29 L42 12 Q48 10 56 13 L68 28 Z"
+          fill="url(#wingRed)"
+          opacity="0.95"
+        />
+
+        {/* Tail Fin */}
+        <path
+          d="M15 32 L3 13 Q9 11 18 18 L20 32 Z"
+          fill="#b91c1c"
+        />
+
+        {/* Propeller Hub & Yellow Tip */}
+        <ellipse cx="122" cy="33" rx="3.5" ry="4" fill="#f59e0b" />
+        <line
+          x1="122"
+          y1="14"
+          x2="122"
+          y2="52"
+          stroke="#fef08a"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          className="animate-spin origin-[122px_33px]"
+        />
+      </svg>
+    </div>
+  );
+}
+
+/* ---------------- Aviator (Sky Crash) ---------------- */
 export function CrashGame({ game }: { game: GameRow }) {
   const { t } = useApp();
   const after = useAfterPlay(game.slug);
+
   const [stake, setStake] = useState(game.min_stake);
   const [auto, setAuto] = useState("");
   const [sid, setSid] = useState<string | null>(null);
   const [mult, setMult] = useState(1);
   const [state, setState] = useState<"idle" | "flying" | "crashed" | "cashed">("idle");
   const [busy, setBusy] = useState(false);
-  const [past, setPast] = useState<number[]>([]);
+  const [past, setPast] = useState<number[]>([1.42, 2.15, 1.12, 5.84, 1.95, 12.4, 1.28, 3.42, 1.05]);
+
   const start = useRef(0);
   const sidRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (state !== "flying") return;
-    const anim = setInterval(() => setMult(Math.floor(Math.exp(0.1 * (Date.now() - start.current) / 1000) * 100) / 100), 50);
-    const poll = setInterval(() => check(false), 400);
-    return () => { clearInterval(anim); clearInterval(poll); };
+    const anim = setInterval(() => {
+      const elapsed = (Date.now() - start.current) / 1000;
+      setMult(Math.floor(Math.exp(0.09 * elapsed) * 100) / 100);
+    }, 40);
+
+    const poll = setInterval(() => check(false), 380);
+    return () => {
+      clearInterval(anim);
+      clearInterval(poll);
+    };
   }, [state]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const settle = (r: any) => {
-    sidRef.current = null; setSid(null);
+    sidRef.current = null;
+    setSid(null);
     after(r.balance as number);
+
     if (r.crashed && !(Number(r.payout) > 0)) {
-      setState("crashed"); setMult(Number(r.crash ?? r.multiplier ?? mult)); beep("lose");
-      setPast((p) => [Number(r.crash ?? r.multiplier), ...p].slice(0, 12));
+      setState("crashed");
+      const finalVal = Number(r.crash ?? r.multiplier ?? mult);
+      setMult(finalVal);
+      beep("explode");
+      setPast((p) => [finalVal, ...p].slice(0, 20));
     } else {
-      setState("cashed"); setMult(Number(r.multiplier ?? r.cashout ?? mult)); beep("win");
+      setState("cashed");
+      const finalVal = Number(r.multiplier ?? r.cashout ?? mult);
+      setMult(finalVal);
+      beep("cashout");
       toast.success(`${t("game.win")} +${fmt(Number(r.payout))}`);
-      if (r.crash) setPast((p) => [Number(r.crash), ...p].slice(0, 12));
+      if (r.crash) {
+        setPast((p) => [Number(r.crash), ...p].slice(0, 20));
+      }
     }
   };
 
   const check = async (cashout: boolean) => {
-    const id = sidRef.current; if (!id) return;
-    const { data, error } = await supabase.rpc("crash_check", { _session: id, _cashout: cashout });
-    if (error) { if (cashout) toast.error(errMsg(error)); return; }
+    const id = sidRef.current;
+    if (!id) return;
+
+    if (cashout) beep("cashout");
+
+    const { data, error } = await supabase.rpc("crash_check", {
+      _session: id,
+      _cashout: cashout,
+    });
+
+    if (error) {
+      if (cashout) toast.error(errMsg(error));
+      return;
+    }
+
     const r = data as any;
-    if (r.crashed !== false || r.payout !== undefined) settle(r);
+    if (r.crashed !== false || r.payout !== undefined) {
+      settle(r);
+    }
   };
 
   const launch = async () => {
     setBusy(true);
     const a = auto ? Number(auto) : null;
-    const { data, error } = await supabase.rpc("crash_start", { _stake: stake, _auto: a as number });
+    const { data, error } = await supabase.rpc("crash_start", {
+      _stake: stake,
+      _auto: a as number,
+    });
     setBusy(false);
-    if (error) { toast.error(errMsg(error)); return; }
+
+    if (error) {
+      toast.error(errMsg(error));
+      return;
+    }
+
     const r = data as { session: string; balance: number };
-    after(r.balance); beep("click");
-    sidRef.current = r.session; setSid(r.session);
-    start.current = Date.now(); setMult(1); setState("flying");
+    after(r.balance);
+    beep("takeoff");
+
+    sidRef.current = r.session;
+    setSid(r.session);
+    start.current = Date.now();
+    setMult(1);
+    setState("flying");
   };
 
-  const pct = Math.min(1, Math.log(mult) / Math.log(10));
+  // Trajectory progress (0 to 1)
+  const pct = Math.min(1, Math.max(0.05, Math.log(mult) / Math.log(12)));
+  const planeX = 6 + pct * 74;
+  const planeY = 8 + pct * 65;
+
   return (
-    <div className="space-y-4">
-      {!!past.length && <div className="no-scrollbar flex gap-1.5 overflow-x-auto">{past.map((p, i) => <span key={i} className={cn("rounded-full px-2.5 py-1 text-xs font-bold", p >= 2 ? "bg-success/15 text-success" : "bg-secondary text-primary-deep")}>{p.toFixed(2)}×</span>)}</div>}
-      <div className="relative aspect-[16/10] overflow-hidden rounded-2xl bg-gradient-night shadow-card">
-        <svg viewBox="0 0 100 60" className="absolute inset-0 h-full w-full" preserveAspectRatio="none">
-          {state !== "idle" && <path d={`M0 60 Q ${pct * 60} ${60 - pct * 5} ${10 + pct * 80} ${55 - pct * 45}`} stroke="var(--primary)" strokeWidth="1" fill="none" />}
+    <div className="space-y-3 font-sans">
+      {/* Top Round History Strip (Authentic Aviator Styling) */}
+      <div className="flex items-center gap-1.5 overflow-x-auto rounded-xl border border-white/5 bg-[#0e131b] px-2 py-1.5 no-scrollbar shadow-inner">
+        <span className="text-[10px] font-black uppercase tracking-widest text-white/40 mr-1 shrink-0">
+          History
+        </span>
+        {past.map((p, i) => {
+          const isHigh = p >= 10;
+          const isMedium = p >= 2;
+          return (
+            <span
+              key={i}
+              className={cn(
+                "shrink-0 rounded-full border px-2.5 py-0.5 font-mono text-[11px] font-extrabold tracking-tight transition",
+                isHigh
+                  ? "border-rose-500/50 bg-rose-500/20 text-rose-300 shadow-[0_0_8px_rgba(244,63,94,0.35)]"
+                  : isMedium
+                  ? "border-purple-500/40 bg-purple-500/15 text-purple-300"
+                  : "border-sky-500/30 bg-sky-500/10 text-sky-400"
+              )}
+            >
+              {p.toFixed(2)}x
+            </span>
+          );
+        })}
+      </div>
+
+      {/* Aviator Radar Flight Arena */}
+      <div className="relative aspect-[16/10] overflow-hidden rounded-2xl border border-white/10 bg-[#0a0d14] shadow-2xl">
+        {/* Cockpit Radar Grid Lines */}
+        <div
+          className="pointer-events-none absolute inset-0 opacity-20"
+          style={{
+            backgroundImage:
+              "linear-gradient(to right, rgba(255,255,255,0.08) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.08) 1px, transparent 1px)",
+            backgroundSize: "40px 40px",
+          }}
+        />
+
+        {/* Red Glowing Flight Curve Canvas/SVG */}
+        <svg
+          viewBox="0 0 100 65"
+          className="absolute inset-0 h-full w-full pointer-events-none"
+          preserveAspectRatio="none"
+        >
+          <defs>
+            <linearGradient id="flightGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#ef4444" stopOpacity="0.45" />
+              <stop offset="100%" stopColor="#ef4444" stopOpacity="0.0" />
+            </linearGradient>
+          </defs>
+
+          {state !== "idle" && (
+            <>
+              {/* Fill below the curve */}
+              <path
+                d={`M 0 65 Q ${planeX * 0.55} 65 ${planeX} ${65 - planeY} L ${planeX} 65 Z`}
+                fill="url(#flightGradient)"
+              />
+              {/* Main glowing red curve line */}
+              <path
+                d={`M 0 65 Q ${planeX * 0.55} 65 ${planeX} ${65 - planeY}`}
+                stroke="#ef4444"
+                strokeWidth="2"
+                strokeLinecap="round"
+                fill="none"
+                style={{ filter: "drop-shadow(0 0 6px #ef4444)" }}
+              />
+            </>
+          )}
         </svg>
-        {state !== "idle" && <Plane className={cn("absolute h-8 w-8 text-gold transition-all duration-100", state === "crashed" && "opacity-0")} style={{ left: `${8 + pct * 80}%`, bottom: `${5 + pct * 70}%`, transform: "rotate(-20deg)" }} />}
-        <div className="absolute inset-0 grid place-items-center text-center">
-          <div>
-            <div className={cn("font-display text-5xl font-extrabold tabular-nums", state === "crashed" ? "text-game-red" : state === "cashed" ? "text-game-green" : "text-night-foreground")}>{mult.toFixed(2)}×</div>
-            {state === "crashed" && <div className="mt-1 font-bold text-game-red">{t("game.flew_away")}</div>}
-            {state === "idle" && <div className="mt-1 text-sm text-night-foreground/70">Place a bet to take off</div>}
+
+        {/* The Animated Red Aviator Plane */}
+        {state !== "idle" && (
+          <div
+            className="absolute transition-all duration-75 pointer-events-none"
+            style={{
+              left: `${planeX}%`,
+              bottom: `${planeY}%`,
+              transform: `translate(-50%, 50%) rotate(${Math.min(22, 5 + pct * 20)}deg)`,
+            }}
+          >
+            <RedAviatorPlane crashed={state === "crashed"} />
           </div>
+        )}
+
+        {/* Center Multiplier & Status Display */}
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-center select-none">
+          {state === "crashed" ? (
+            <div className="animate-in fade-in zoom-in duration-200">
+              <div className="font-display text-4xl sm:text-6xl font-black text-rose-500 drop-shadow-[0_0_20px_rgba(244,63,94,0.8)]">
+                {mult.toFixed(2)}x
+              </div>
+              <div className="mt-1 font-display text-sm sm:text-lg font-black uppercase tracking-widest text-rose-400">
+                FLEW AWAY!
+              </div>
+            </div>
+          ) : state === "cashed" ? (
+            <div className="animate-in fade-in zoom-in duration-200">
+              <div className="font-display text-4xl sm:text-6xl font-black text-emerald-400 drop-shadow-[0_0_20px_rgba(52,211,153,0.8)]">
+                {mult.toFixed(2)}x
+              </div>
+              <div className="mt-1 font-display text-xs sm:text-sm font-black uppercase tracking-wider text-emerald-300">
+                CASHED OUT SUCCESSFULLY
+              </div>
+            </div>
+          ) : state === "flying" ? (
+            <div>
+              <div className="font-display text-5xl sm:text-7xl font-black tracking-tight text-white drop-shadow-[0_4px_16px_rgba(0,0,0,0.8)]">
+                {mult.toFixed(2)}
+                <span className="text-rose-500">x</span>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-2">
+              <div className="grid h-14 w-14 place-items-center rounded-full border border-rose-500/40 bg-rose-500/10 shadow-[0_0_20px_rgba(239,68,68,0.25)]">
+                <Zap className="h-7 w-7 text-rose-400 animate-pulse" />
+              </div>
+              <span className="font-display text-xs font-bold uppercase tracking-widest text-white/60">
+                WAITING FOR NEXT ROUND
+              </span>
+            </div>
+          )}
         </div>
       </div>
-      <Card className="space-y-3">
-        <StakeInput value={stake} onChange={setStake} min={game.min_stake} max={game.max_stake} disabled={state === "flying"} />
-        <label className="block text-xs text-muted-foreground">{t("game.auto_cashout")}
-          <input value={auto} onChange={(e) => setAuto(e.target.value)} disabled={state === "flying"} placeholder="e.g. 2.00" inputMode="decimal" className="mt-1 h-11 w-full rounded-xl border border-input bg-background px-3 text-sm text-foreground outline-none" />
-        </label>
+
+      {/* Aviator Betting Dashboard */}
+      <div className="rounded-2xl border border-white/10 bg-[#121620] p-4 text-white shadow-xl">
+        {/* Quick chip buttons */}
+        <div className="mb-3 flex items-center justify-between gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+          {[100, 200, 500, 1000, 2000, 5000].map((v) => (
+            <button
+              key={v}
+              type="button"
+              disabled={state === "flying"}
+              onClick={() => {
+                beep("chip");
+                setStake(v);
+              }}
+              className={cn(
+                "rounded-lg border px-2.5 py-1 text-xs font-bold transition active:scale-95",
+                stake === v
+                  ? "border-rose-500 bg-rose-500/20 text-rose-300"
+                  : "border-white/10 bg-white/5 text-white/70 hover:bg-white/10"
+              )}
+            >
+              ₨{v}
+            </button>
+          ))}
+        </div>
+
+        {/* Stake Adjustment & Auto Cashout */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+          <div>
+            <div className="text-[11px] font-bold uppercase tracking-wider text-white/50 mb-1">
+              Bet Amount (PKR)
+            </div>
+            <div className="flex items-center rounded-xl border border-white/10 bg-black/40 p-1">
+              <button
+                type="button"
+                disabled={state === "flying"}
+                onClick={() => {
+                  beep("chip");
+                  setStake((s) => Math.max(game.min_stake, s - 50));
+                }}
+                className="grid h-10 w-10 place-items-center rounded-lg bg-white/10 hover:bg-white/15 active:scale-95 disabled:opacity-40"
+              >
+                <Minus className="h-4 w-4" />
+              </button>
+              <input
+                type="number"
+                inputMode="numeric"
+                value={stake}
+                onChange={(e) => setStake(Number(e.target.value))}
+                disabled={state === "flying"}
+                className="h-10 min-w-0 flex-1 bg-transparent text-center font-display text-lg font-black text-amber-300 outline-none"
+              />
+              <button
+                type="button"
+                disabled={state === "flying"}
+                onClick={() => {
+                  beep("chip");
+                  setStake((s) => Math.min(game.max_stake, s + 50));
+                }}
+                className="grid h-10 w-10 place-items-center rounded-lg bg-white/10 hover:bg-white/15 active:scale-95 disabled:opacity-40"
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <div className="text-[11px] font-bold uppercase tracking-wider text-white/50 mb-1">
+              Auto Cash Out (e.g. 2.00x)
+            </div>
+            <input
+              value={auto}
+              onChange={(e) => setAuto(e.target.value)}
+              disabled={state === "flying"}
+              placeholder="e.g. 2.00"
+              inputMode="decimal"
+              className="h-12 w-full rounded-xl border border-white/10 bg-black/40 px-3 text-center font-display text-sm font-bold text-white placeholder-white/20 outline-none focus:border-rose-500/50"
+            />
+          </div>
+        </div>
+
+        {/* Big Action Button (BET / CASHOUT) */}
         {state === "flying" ? (
-          <PrimaryButton variant="gold" onClick={() => check(true)}>{t("game.cashout")} {fmt(Math.floor(stake * mult))}</PrimaryButton>
+          <button
+            type="button"
+            onClick={() => check(true)}
+            className="flex min-h-16 w-full flex-col items-center justify-center rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 font-display font-black uppercase text-white shadow-[0_0_25px_rgba(245,158,11,0.6)] transition active:scale-[0.98]"
+          >
+            <span className="text-xl tracking-wider">CASH OUT</span>
+            <span className="text-xs font-bold tracking-tight opacity-95">
+              ₨{fmt(Math.floor(stake * mult))} ({mult.toFixed(2)}x)
+            </span>
+          </button>
         ) : (
-          <PrimaryButton onClick={launch} loading={busy} disabled={!!sid}>{t("game.bet")} {fmt(stake)}</PrimaryButton>
+          <button
+            type="button"
+            onClick={launch}
+            disabled={busy || !!sid}
+            className="flex min-h-16 w-full flex-col items-center justify-center rounded-2xl bg-gradient-to-r from-emerald-600 to-green-500 font-display font-black uppercase text-white shadow-[0_0_20px_rgba(16,185,129,0.5)] transition hover:brightness-110 active:scale-[0.98] disabled:opacity-50"
+          >
+            <span className="text-xl tracking-wider">{busy ? "STARTING..." : "BET"}</span>
+            <span className="text-xs font-bold tracking-tight opacity-95">
+              ₨{fmt(stake)}
+            </span>
+          </button>
         )}
-      </Card>
+      </div>
     </div>
   );
 }
@@ -117,6 +449,7 @@ export function MinesGame({ game }: { game: GameRow }) {
     after(r.balance); beep("click");
     setSid(r.session); setRevealed([]); setMines([]); setMult(1); setNext(null);
   };
+
   const reveal = async (i: number) => {
     if (!sid || revealed.includes(i) || busy) return;
     setBusy(true);
@@ -128,6 +461,7 @@ export function MinesGame({ game }: { game: GameRow }) {
     if (r.payout !== undefined) { setMines(r.mines ?? []); setRevealed((v) => [...v, i]); setSid(null); after(r.balance); beep("win"); toast.success(`${t("game.win")} +${fmt(r.payout)}`); return; }
     beep("tick"); setRevealed(r.revealed ?? []); setMult(r.multiplier ?? 1); setNext(r.next ?? null);
   };
+
   const cashout = async () => {
     if (!sid) return;
     setBusy(true);
@@ -178,6 +512,7 @@ export function ChickenGame({ game }: { game: GameRow }) {
   const [hazard, setHazard] = useState<number | null>(null);
   const [mult, setMult] = useState(1);
   const [busy, setBusy] = useState(false);
+
   const laneMult = (l: number) => Math.round((0.97 / Math.pow(1 - (P[diff] ?? 0.04), l)) * 100) / 100;
 
   const start = async () => {
@@ -188,6 +523,7 @@ export function ChickenGame({ game }: { game: GameRow }) {
     const r = data as { session: string; balance: number };
     after(r.balance); beep("click"); setSid(r.session); setLane(0); setHazard(null); setMult(1);
   };
+
   const step = async () => {
     if (!sid) return;
     setBusy(true);
@@ -199,6 +535,7 @@ export function ChickenGame({ game }: { game: GameRow }) {
     if (r.payout !== undefined) { setLane(20); setSid(null); after(r.balance); beep("win"); toast.success(`${t("game.win")} +${fmt(r.payout)}`); return; }
     beep("tick"); setLane(r.lane!); setMult(r.multiplier!);
   };
+
   const cashout = async () => {
     if (!sid) return;
     setBusy(true);
