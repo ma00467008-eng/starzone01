@@ -1,4 +1,4 @@
-// WinGo Component - Global Synchronized Periods & Trend
+// WinGo Component - Live Global Trend & Synced Results
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -25,9 +25,24 @@ const BASES = [1, 10, 100, 1000];
 const MULTS = [1, 5, 10, 20, 50, 100];
 const DEPTHS = [20, 30, 50, 100] as const;
 
+// Official WinGo Mode Codes & Endpoints
+const MODE_CODES: Record<number, string> = {
+  30: "10005",
+  60: "10001",
+  180: "10002",
+  300: "10003",
+};
+
+const GLOBAL_FEED_URLS: Record<number, string> = {
+  30: "https://draw.ar-lottery01.com/WinGo/WinGo_30S/GetHistoryIssuePage.json",
+  60: "https://draw.ar-lottery01.com/WinGo/WinGo_1M/GetHistoryIssuePage.json",
+  180: "https://draw.ar-lottery01.com/WinGo/WinGo_3M/GetHistoryIssuePage.json",
+  300: "https://draw.ar-lottery01.com/WinGo/WinGo_5M/GetHistoryIssuePage.json",
+};
+
 /**
- * Standard WinGo Global Period Formatter
- * Format: YYYYMMDD + ModeCode (01 for 1m, 03 for 3m, 05 for 5m) + 5-digit round of day (10001+)
+ * Official WinGo Global Period Number Formatter
+ * Format: YYYYMMDD + ModeCode (10005, 10001, 10002, 10003) + 4-digit round of day (0001-1440)
  */
 export function formatGlobalPeriod(rawPeriod: number, duration: number): string {
   const d = new Date(rawPeriod * duration * 1000);
@@ -38,12 +53,10 @@ export function formatGlobalPeriod(rawPeriod: number, duration: number): string 
   const yyyy = d.getUTCFullYear();
   const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
   const dd = String(d.getUTCDate()).padStart(2, "0");
+  const code = MODE_CODES[duration] ?? "10001";
+  const roundStr = String(roundOfDay).padStart(4, "0");
 
-  const modeCode =
-    duration === 30 ? "30" : duration === 60 ? "01" : duration === 180 ? "03" : duration === 300 ? "05" : String(duration).padStart(2, "0");
-  const roundStr = String(10000 + roundOfDay);
-
-  return `${yyyy}${mm}${dd}${modeCode}${roundStr}`;
+  return `${yyyy}${mm}${dd}${code}${roundStr}`;
 }
 
 export function WingoGame({ game }: { game: GameRow }) {
@@ -75,38 +88,45 @@ export function WingoGame({ game }: { game: GameRow }) {
   const remain = Math.max(0, Math.ceil((period + 1) * dur - now / 1000));
   const stake = base * qty;
 
+  // Fetch Live Global Results directly from the official feed
   const {
-    data: rawHist,
+    data: hist,
     refetch: refetchHist,
     isFetching: isHistLoading,
   } = useQuery({
-    queryKey: ["wingo-hist", game.slug, dur, period, histLimit],
+    queryKey: ["wingo-global-hist", game.slug, dur, period],
     queryFn: async () => {
+      try {
+        const feedUrl = GLOBAL_FEED_URLS[dur];
+        if (feedUrl) {
+          const res = await fetch(feedUrl, { cache: "no-store" });
+          if (res.ok) {
+            const json = await res.json();
+            const list = json?.data?.list ?? [];
+            if (Array.isArray(list) && list.length > 0) {
+              return list.map((item: any, idx: number) => ({
+                period: String(item.issueNumber),
+                raw: period - 1 - idx,
+                number: Number(item.number),
+                hash: String(item.premium ?? ""),
+              })) as Hist[];
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("Global feed fetch failed, falling back to local RPC:", err);
+      }
+
+      // Fallback to Supabase database if offline
       const { data, error } = await supabase.rpc("wingo_history", { _game: game.slug, _duration: dur, _n: histLimit });
       if (error) throw error;
-      const list = (data as Hist[]) ?? [];
-
-      // Calibrate server clock offset from global period
-      if (list.length > 0 && list[0]) {
-        const expectedServerPeriod = list[0].raw + 1;
-        const currentClientPeriod = Math.floor((Date.now() + serverOffset) / 1000 / dur);
-        if (Math.abs(currentClientPeriod - expectedServerPeriod) >= 1) {
-          const targetTime = expectedServerPeriod * dur * 1000 + dur * 500;
-          setServerOffset(targetTime - Date.now());
-        }
-      }
-      return list;
+      return ((data as Hist[]) ?? []).map((h) => ({
+        ...h,
+        period: h.period ? String(h.period) : formatGlobalPeriod(h.raw, dur),
+      }));
     },
-    refetchInterval: remain <= 3 ? 1000 : 8000,
+    refetchInterval: remain <= 3 ? 1000 : 4000,
   });
-
-  // Attach standardized global period code to history rows
-  const hist = useMemo(() => {
-    return (rawHist ?? []).map((h) => ({
-      ...h,
-      displayPeriod: formatGlobalPeriod(h.raw, dur),
-    }));
-  }, [rawHist, dur]);
 
   const { data: myBets } = useQuery({
     queryKey: ["wingo-bets", game.slug, session?.user.id],
@@ -137,12 +157,11 @@ export function WingoGame({ game }: { game: GameRow }) {
             if (!r?.settled) return;
             after(r.balance);
             qc.invalidateQueries({ queryKey: ["wingo-bets", game.slug] });
-            const { data: h } = await supabase.rpc("wingo_history", { _game: game.slug, _duration: prevDur, _n: 1 });
-            const last = (h as Hist[] | null)?.[0];
+            const last = hist?.[0];
             setOutcome({
               win: r.won > 0,
               amount: r.won,
-              round: last ? formatGlobalPeriod(last.raw, prevDur) : undefined,
+              round: last ? last.period : formatGlobalPeriod(period - 1, prevDur),
               detail: last ? <ResultChips n={last.number} /> : undefined,
             });
           });
@@ -150,7 +169,7 @@ export function WingoGame({ game }: { game: GameRow }) {
       }
     }
     lastPeriod.current = period;
-  }, [period, session]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [period, session, hist]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (session) {
@@ -248,12 +267,12 @@ export function WingoGame({ game }: { game: GameRow }) {
           currMissing[n] = (currMissing[n] ?? 0) + 1;
         }
       }
-      rowOmissions[row.displayPeriod] = [...currMissing];
+      rowOmissions[row.period] = [...currMissing];
     });
 
     return list.map((r) => ({
       ...r,
-      missing: rowOmissions[r.displayPeriod] ?? Array(10).fill(1),
+      missing: rowOmissions[r.period] ?? Array(10).fill(1),
     }));
   }, [hist]);
 
@@ -290,7 +309,7 @@ export function WingoGame({ game }: { game: GameRow }) {
             </div>
             <div className="mt-2 flex gap-1">
               {(hist ?? []).slice(0, 5).map((h) => (
-                <Ball key={h.raw} n={h.number} size="sm" />
+                <Ball key={h.period} n={h.number} size="sm" />
               ))}
             </div>
           </div>
@@ -404,8 +423,8 @@ export function WingoGame({ game }: { game: GameRow }) {
               </thead>
               <tbody>
                 {(hist ?? []).map((h) => (
-                  <tr key={h.raw} className="border-t border-border/60 hover:bg-secondary/20">
-                    <td className="px-3 py-2.5 font-mono text-xs">{h.displayPeriod}</td>
+                  <tr key={h.period} className="border-t border-border/60 hover:bg-secondary/20">
+                    <td className="px-3 py-2.5 font-mono text-xs">{h.period}</td>
                     {isTrx && <td className="font-mono text-[10px] text-muted-foreground">{h.hash?.slice(-6)}</td>}
                     <td className="text-center">
                       <div className="flex justify-center">
@@ -434,7 +453,7 @@ export function WingoGame({ game }: { game: GameRow }) {
         {/* TREND TAB */}
         {tab === "chart" && (
           <div className="p-3 space-y-3">
-            {/* Header Controls & Depth Filter */}
+            {/* Header Controls */}
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-2.5">
               <div className="flex items-center gap-1.5">
                 <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
@@ -442,21 +461,8 @@ export function WingoGame({ game }: { game: GameRow }) {
                 <span className="text-[11px] text-muted-foreground font-mono">({dur}s)</span>
               </div>
               <div className="flex items-center gap-1">
-                <span className="text-[11px] text-muted-foreground mr-1">Rounds:</span>
-                {DEPTHS.map((d) => (
-                  <button
-                    key={d}
-                    onClick={() => setHistLimit(d)}
-                    className={cn(
-                      "rounded-md px-2 py-0.5 text-[11px] font-bold transition",
-                      histLimit === d ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"
-                    )}
-                  >
-                    {d}
-                  </button>
-                ))}
-                <button onClick={() => refetchHist()} disabled={isHistLoading} className="ml-1 text-muted-foreground hover:text-foreground p-1" title="Refresh">
-                  <RefreshCw className={cn("h-3.5 w-3.5", isHistLoading && "animate-spin text-primary")} />
+                <button onClick={() => refetchHist()} disabled={isHistLoading} className="ml-1 text-muted-foreground hover:text-foreground p-1 flex items-center gap-1 text-xs" title="Refresh">
+                  <RefreshCw className={cn("h-3.5 w-3.5", isHistLoading && "animate-spin text-primary")} /> Sync
                 </button>
               </div>
             </div>
@@ -557,13 +563,13 @@ export function WingoGame({ game }: { game: GameRow }) {
 
                   {omissionMatrix.map((h, rowIdx) => (
                     <div
-                      key={h.raw}
+                      key={h.period}
                       className={cn(
                         "grid grid-cols-[5.5rem_2.5rem_2.2rem_2.2rem_1fr] items-center px-2 h-9 border-b border-border/40 text-xs transition hover:bg-secondary/30",
                         rowIdx % 2 === 0 ? "bg-card/40" : "bg-card/20"
                       )}
                     >
-                      <span className="font-mono text-[11px] text-muted-foreground">{h.displayPeriod.slice(-5)}</span>
+                      <span className="font-mono text-[11px] text-muted-foreground">{h.period.slice(-5)}</span>
                       <div className="flex justify-center">
                         <span className={cn("grid h-5 w-5 place-items-center rounded-full font-bold text-[10px] text-primary-foreground", colorBg[numColors(h.number)[0]!])}>
                           {h.number}
@@ -674,13 +680,11 @@ export function WingoGame({ game }: { game: GameRow }) {
                 <Plus className="h-4 w-4" />
               </button>
             </Row>
-            <div className="grid grid-cols-6 gap-1.5">
-              {MULTS.map((m) => (
-                <Pill key={m} active={qty === m} tone={selTone} onClick={() => setQty(m)}>
-                  X{m}
-                </Pill>
-              ))}
-            </div>
+            <div className="grid grid-cols-6 gap-1.5">{MULTS.map((m) => (
+              <Pill key={m} active={qty === m} tone={selTone} onClick={() => setQty(m)}>
+                X{m}
+              </Pill>
+            ))}</div>
             <p className="text-xs text-muted-foreground">
               Balance: <b className="text-foreground">{fmt(profile?.balance)}</b> · Limits {fmt(game.min_stake)} – {fmt(game.max_stake)}
             </p>
