@@ -395,21 +395,25 @@ export function WingoGame({ game }: { game: GameRow }) {
     return formatGlobalPeriod(period, dur);
   }, [latestHistPeriod, period, dur]);
 
-  // User Bets History
+    // User Bets History
   const { data: myBets } = useQuery({
     queryKey: ["wingo-bets", game.slug, session?.user?.id],
-    enabled: !!session,
+    enabled: !!session?.user?.id,
     queryFn: async () =>
-      (
-        await supabase
-          .from("wingo_bets")
-          .select("*")
-          .eq("game", game.slug)
-          .order("created_at", { ascending: false })
-          .limit(30)
-      ).data ?? [],
+      session?.user?.id
+        ? (
+            await supabase
+              .from("wingo_bets")
+              .select("*")
+              .eq("game", game.slug)
+              .eq("user_id", session.user.id)
+              .order("created_at", { ascending: false })
+              .limit(30)
+          ).data ?? []
+        : [],
     refetchInterval: tab === "mine" ? 3000 : 8000,
   });
+
 
   useEffect(() => {
     if (remain <= 5 && remain > 0) beep("tick");
