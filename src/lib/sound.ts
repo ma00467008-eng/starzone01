@@ -72,4 +72,9 @@ export function beep(kind: Kind = "click") {
     case "tiger": growl(c, 140, 0.9, 0.16); break;
   }
 }
-export const fmt = (n: number | null | undefined) => (Number(n) || 0).toLocaleString("en-US");
+
+export const CURRENCY = "PKR";
+export const CURRENCY_SYMBOL = "₨";
+
+export const fmt = (n: number | null | undefined) =>
+  `₨${(Number(n) || 0).toLocaleString("en-PK", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
