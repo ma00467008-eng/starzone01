@@ -59,7 +59,8 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
-:root {
+  }
+  :root {
   --radius: 0.875rem;
   --background: oklch(0.16 0.07 290);          /* Deep midnight purple background */
   --foreground: oklch(0.96 0.02 295);          /* Crisp readable light text */
