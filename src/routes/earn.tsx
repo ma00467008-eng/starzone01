@@ -100,7 +100,7 @@ function EarnBody() {
   };
 
   const sum = (k: keyof Lvl) => data.levels.reduce((a, l) => a + Number(l[k] ?? 0), 0);
-  const cur = data.levels.find((l) => l.level === lvl) ?? data.levels[0];
+  const fallbackLevel = { level: 1, members: 0, deposit_users: 0, deposit_amount: 0, bet_amount: 0, bet_today: 0, new_today: 0, users: [] }; const cur = data.levels.find((l) => l.level === lvl) ?? data.levels[0] ?? fallbackLevel;
   const directLevel = data.levels.find((l) => l.level === 1);
 
   const claim = async () => {
