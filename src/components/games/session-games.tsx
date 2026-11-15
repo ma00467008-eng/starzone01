@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Bomb, Check, Flame, Footprints, Gem, Minus, Plus, Shield, Trophy } from "lucide-react";
+import { Bomb, Check, Gem, Minus, Plus, Shield, Trophy } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useApp, errMsg } from "@/lib/app-context";
 import { beep, fmt } from "@/lib/sound";
@@ -520,98 +520,160 @@ export function CrashGame({ game }: { game: GameRow }) {
 }
 
 /* =========================================================================
-   2. CHICKEN ROAD 2.0 (HIGHWAY CROSSING WITH TRAFFIC & MANHOLE MULTIPLIERS)
+   2. CHICKEN ROAD 2.0 (INOUT GAMES STYLE - LIVE HIGHWAY TRAFFIC & CHICKEN)
 ========================================================================= */
 
-/* Top-down Chicken with hopping animation */
-function TopDownChicken({ hit }: { hit?: boolean }) {
+/* The Fluffy InOut Chicken character with big curious eyes & red comb */
+function InOutChicken({ hit, jumping }: { hit?: boolean; jumping?: boolean }) {
   if (hit) {
     return (
-      <div className="relative text-3xl animate-bounce">
-        <span>💥</span>
+      <div className="relative grid place-items-center animate-bounce">
+        <span className="text-4xl">💥</span>
+        <span className="text-[10px] font-black uppercase tracking-wider text-rose-500 mt-1">SPLAT!</span>
       </div>
     );
   }
+
   return (
-    <div className="relative transition-transform duration-200">
-      <svg viewBox="0 0 60 60" className="h-10 w-10 filter drop-shadow-[0_4px_8px_rgba(0,0,0,0.8)]">
+    <div
+      className={cn(
+        "relative transition-transform duration-200 select-none",
+        jumping && "-translate-y-3 scale-110"
+      )}
+    >
+      <svg
+        viewBox="0 0 70 70"
+        className="h-12 w-12 drop-shadow-[0_8px_10px_rgba(0,0,0,0.65)]"
+      >
+        <defs>
+          <linearGradient id="henBody" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#ffffff" />
+            <stop offset="70%" stopColor="#fef08a" />
+            <stop offset="100%" stopColor="#fde047" />
+          </linearGradient>
+          <linearGradient id="henWing" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#fef9c3" />
+            <stop offset="100%" stopColor="#facc15" />
+          </linearGradient>
+        </defs>
+
         {/* Tail feathers */}
-        <path d="M12 28 Q8 20 16 22 Q10 30 18 32 Z" fill="#b45309" />
-        <path d="M10 30 Q6 25 15 26 Q12 34 20 34 Z" fill="#92400e" />
-        {/* Body */}
-        <ellipse cx="30" cy="32" rx="16" ry="14" fill="#fef08a" stroke="#ca8a04" strokeWidth="1.5" />
-        {/* Wings */}
-        <ellipse cx="30" cy="21" rx="10" ry="5" fill="#fde047" transform="rotate(-15 30 21)" />
-        <ellipse cx="30" cy="43" rx="10" ry="5" fill="#fde047" transform="rotate(15 30 43)" />
+        <path d="M12 30 C6 20, 14 14, 22 22 C14 26, 12 38, 20 40 Z" fill="#eab308" />
+
+        {/* Plump Hen Body */}
+        <ellipse cx="36" cy="38" rx="20" ry="17" fill="url(#henBody)" stroke="#ca8a04" strokeWidth="1.5" />
+
+        {/* Left Wing */}
+        <path
+          d="M26 34 Q34 32 38 42 Q30 46 26 34 Z"
+          fill="url(#henWing)"
+          stroke="#ca8a04"
+          strokeWidth="1"
+        />
+
         {/* Head */}
-        <circle cx="44" cy="32" r="9" fill="#fef08a" stroke="#ca8a04" strokeWidth="1.5" />
-        {/* Red comb */}
-        <path d="M40 24 Q44 18 48 24 Q52 18 54 26 Z" fill="#ef4444" />
-        {/* Eyes */}
-        <circle cx="46" cy="28" r="2" fill="#0f172a" />
-        <circle cx="46" cy="36" r="2" fill="#0f172a" />
-        <circle cx="47" cy="27.5" r="0.7" fill="#ffffff" />
-        <circle cx="47" cy="35.5" r="0.7" fill="#ffffff" />
-        {/* Beak & Wattle */}
-        <polygon points="52,30 58,32 52,34" fill="#f97316" />
-        <ellipse cx="50" cy="36" rx="2" ry="3" fill="#dc2626" />
+        <circle cx="48" cy="28" r="11" fill="url(#henBody)" stroke="#ca8a04" strokeWidth="1.5" />
+
+        {/* Red 3-Point Rooster/Hen Comb */}
+        <path
+          d="M42 18 Q46 10 50 16 Q54 9 57 17 Q59 13 61 20 Z"
+          fill="#ef4444"
+          stroke="#b91c1c"
+          strokeWidth="1"
+        />
+
+        {/* Big Curious Cartoon Eyes */}
+        <ellipse cx="50" cy="24" rx="4" ry="4.5" fill="#ffffff" stroke="#000" strokeWidth="1" />
+        <circle cx="51.5" cy="24.5" r="2.2" fill="#0f172a" />
+        <circle cx="52.2" cy="23.5" r="0.8" fill="#ffffff" />
+
+        {/* Orange Beak */}
+        <polygon points="58,26 68,29 58,33" fill="#f97316" stroke="#c2410c" strokeWidth="1" />
+
+        {/* Red Wattle under beak */}
+        <ellipse cx="55" cy="34" rx="2.5" ry="4" fill="#dc2626" />
+
+        {/* Orange Little Hen Feet */}
+        <path d="M30 55 L30 60 M30 60 L26 62 M30 60 L34 62" stroke="#ea580c" strokeWidth="2.5" strokeLinecap="round" />
+        <path d="M42 55 L42 60 M42 60 L38 62 M42 60 L46 62" stroke="#ea580c" strokeWidth="2.5" strokeLinecap="round" />
       </svg>
     </div>
   );
 }
 
-/* Top-down Car with headlights & roof details */
-function TopDownCar({ type = "taxi" }: { type?: "taxi" | "police" | "sports" }) {
+/* Continuously Zooming Highway Traffic Cars */
+function TrafficCar({ type, speed = 3, direction = "down" }: { type: "taxi" | "police" | "sports" | "truck"; speed?: number; direction?: "up" | "down" }) {
   const isTaxi = type === "taxi";
   const isPolice = type === "police";
+  const isTruck = type === "truck";
+
   return (
-    <svg viewBox="0 0 46 84" className="h-20 w-11 filter drop-shadow-[0_6px_10px_rgba(0,0,0,0.8)]">
-      {/* Wheels */}
-      <rect x="2" y="14" width="6" height="15" rx="2" fill="#0f172a" />
-      <rect x="38" y="14" width="6" height="15" rx="2" fill="#0f172a" />
-      <rect x="2" y="55" width="6" height="15" rx="2" fill="#0f172a" />
-      <rect x="38" y="55" width="6" height="15" rx="2" fill="#0f172a" />
-
-      {/* Car chassis */}
-      <rect
-        x="6"
-        y="6"
-        width="34"
-        height="72"
-        rx="9"
-        fill={isTaxi ? "#eab308" : isPolice ? "#1e293b" : "#dc2626"}
-      />
-
-      {/* Front Windshield */}
-      <path d="M10 24 Q23 20 36 24 L34 33 Q23 30 12 33 Z" fill="#38bdf8" opacity="0.8" />
-      {/* Rear Windshield */}
-      <path d="M12 51 Q23 54 34 51 L35 58 Q23 60 11 58 Z" fill="#38bdf8" opacity="0.8" />
-
-      {/* Roof */}
-      <rect
-        x="10"
-        y="33"
-        width="26"
-        height="18"
-        rx="3"
-        fill={isTaxi ? "#ca8a04" : isPolice ? "#0f172a" : "#991b1b"}
-      />
-
-      {/* Taxi or Police beacon */}
-      {isTaxi && (
-        <rect x="16" y="38" width="14" height="7" rx="2" fill="#ffffff" stroke="#000" strokeWidth="0.5" />
+    <div
+      className={cn(
+        "absolute left-1/2 -translate-x-1/2 pointer-events-none z-10",
+        direction === "down" ? "animate-traffic-down" : "animate-traffic-up"
       )}
-      {isPolice && (
-        <ellipse cx="23" cy="42" rx="5" ry="3.5" fill="#ef4444" className="animate-pulse" />
-      )}
+      style={{
+        animationDuration: `${speed}s`,
+      }}
+    >
+      <svg
+        viewBox="0 0 46 90"
+        className={cn(
+          "h-20 w-11 drop-shadow-[0_6px_12px_rgba(0,0,0,0.85)]",
+          direction === "up" && "rotate-180"
+        )}
+      >
+        {/* Tires */}
+        <rect x="2" y="14" width="6" height="15" rx="2" fill="#0f172a" />
+        <rect x="38" y="14" width="6" height="15" rx="2" fill="#0f172a" />
+        <rect x="2" y="58" width="6" height="15" rx="2" fill="#0f172a" />
+        <rect x="38" y="58" width="6" height="15" rx="2" fill="#0f172a" />
 
-      {/* Headlights */}
-      <circle cx="11" cy="8" r="3" fill="#fef08a" />
-      <circle cx="35" cy="8" r="3" fill="#fef08a" />
-      {/* Taillights */}
-      <circle cx="11" cy="76" r="2.5" fill="#ef4444" />
-      <circle cx="35" cy="76" r="2.5" fill="#ef4444" />
-    </svg>
+        {/* Main Body */}
+        <rect
+          x="6"
+          y="6"
+          width="34"
+          height="76"
+          rx={isTruck ? 4 : 9}
+          fill={isTaxi ? "#eab308" : isPolice ? "#1e293b" : isTruck ? "#334155" : "#dc2626"}
+        />
+
+        {/* Front Windshield */}
+        <path d="M10 24 Q23 20 36 24 L34 33 Q23 30 12 33 Z" fill="#38bdf8" opacity="0.85" />
+        {/* Rear Windshield */}
+        <path d="M12 55 Q23 58 34 55 L35 62 Q23 64 11 62 Z" fill="#38bdf8" opacity="0.85" />
+
+        {/* Roof */}
+        <rect
+          x="10"
+          y="33"
+          width="26"
+          height="22"
+          rx={3}
+          fill={isTaxi ? "#ca8a04" : isPolice ? "#0f172a" : isTruck ? "#1e293b" : "#991b1b"}
+        />
+
+        {/* Taxi Sign or Police Flashing Light */}
+        {isTaxi && (
+          <rect x="16" y="40" width="14" height="7" rx="2" fill="#ffffff" stroke="#000" strokeWidth="0.5" />
+        )}
+        {isPolice && (
+          <ellipse cx="23" cy="44" rx="5" ry="3.5" fill="#ef4444" className="animate-pulse" />
+        )}
+
+        {/* Bright Headlights (Casting Light on Asphalt) */}
+        <circle cx="11" cy="7" r="3.5" fill="#fef08a" />
+        <circle cx="35" cy="7" r="3.5" fill="#fef08a" />
+        <path d="M6 7 L0 0 L16 0 Z" fill="#fef08a" opacity="0.18" />
+        <path d="M40 7 L30 0 L46 0 Z" fill="#fef08a" opacity="0.18" />
+
+        {/* Red Taillights */}
+        <circle cx="11" cy="80" r="2.5" fill="#ef4444" />
+        <circle cx="35" cy="80" r="2.5" fill="#ef4444" />
+      </svg>
+    </div>
   );
 }
 
@@ -622,22 +684,23 @@ export function ChickenGame({ game }: { game: GameRow }) {
   const after = useAfterPlay(game.slug);
 
   const [stake, setStake] = useState(game.min_stake);
-  const [diff, setDiff] = useState<"easy" | "medium" | "hard" | "hardcore">("easy");
+  const [diff, setDiff] = useState<"easy" | "medium" | "hard" | "hardcore">("hard");
   const [sid, setSid] = useState<string | null>(null);
   const [lane, setLane] = useState(0);
   const [hazard, setHazard] = useState<number | null>(null);
   const [mult, setMult] = useState(1);
   const [busy, setBusy] = useState(false);
+  const [isJumping, setIsJumping] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const laneMult = (l: number) =>
     Math.round((0.97 / Math.pow(1 - (P[diff] ?? 0.04), l)) * 100) / 100;
 
-  // Auto-scroll along with the chicken
+  // Smooth camera tracking to keep active chicken in center of the road
   useEffect(() => {
     if (scrollRef.current) {
-      const scrollPos = Math.max(0, lane * 85 - 120);
+      const scrollPos = Math.max(0, lane * 95 - 90);
       scrollRef.current.scrollTo({ left: scrollPos, behavior: "smooth" });
     }
   }, [lane]);
@@ -662,8 +725,12 @@ export function ChickenGame({ game }: { game: GameRow }) {
   const step = async () => {
     if (!sid) return;
     setBusy(true);
+    setIsJumping(true);
+
     const { data, error } = await supabase.rpc("chicken_step", { _session: sid });
     setBusy(false);
+    setTimeout(() => setIsJumping(false), 200);
+
     if (error) {
       toast.error(errMsg(error));
       return;
@@ -684,7 +751,7 @@ export function ChickenGame({ game }: { game: GameRow }) {
       setSid(null);
       after(r.balance);
       beep("explode");
-      toast.error("Crash! Hit by speeding traffic!");
+      toast.error("Crash! Hit by speeding highway traffic!");
       return;
     }
 
@@ -721,8 +788,29 @@ export function ChickenGame({ game }: { game: GameRow }) {
 
   return (
     <div className="space-y-4 font-sans">
-      {/* Top Status Bar: Current Multiplier & Target Payout */}
-      <div className="flex items-center justify-between rounded-xl border border-white/10 bg-[#0e131b] px-4 py-2 text-white">
+      <style>{`
+        @keyframes trafficDown {
+          0% { transform: translateY(-120px); opacity: 0; }
+          15% { opacity: 1; }
+          85% { opacity: 1; }
+          100% { transform: translateY(260px); opacity: 0; }
+        }
+        @keyframes trafficUp {
+          0% { transform: translateY(260px); opacity: 0; }
+          15% { opacity: 1; }
+          85% { opacity: 1; }
+          100% { transform: translateY(-120px); opacity: 0; }
+        }
+        .animate-traffic-down {
+          animation: trafficDown linear infinite;
+        }
+        .animate-traffic-up {
+          animation: trafficUp linear infinite;
+        }
+      `}</style>
+
+      {/* Header Bar */}
+      <div className="flex items-center justify-between rounded-xl border border-white/10 bg-[#0e131b] px-4 py-2.5 text-white">
         <div>
           <span className="text-[11px] font-bold uppercase tracking-wider text-white/50">
             Current Multiplier
@@ -741,132 +829,143 @@ export function ChickenGame({ game }: { game: GameRow }) {
         </div>
       </div>
 
-      {/* Top-Down Highway Arena (Chicken Road 2.0 View) */}
+      {/* Full-Screen Highway Screen (Chicken Road 2.0 View) */}
       <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#161a23] shadow-2xl">
         <div
           ref={scrollRef}
-          className="flex h-56 items-stretch overflow-x-auto no-scrollbar select-none"
+          className="flex h-64 items-stretch overflow-x-auto no-scrollbar select-none"
         >
-          {/* Starting Sidewalk */}
-          <div className="flex w-24 shrink-0 flex-col items-center justify-between border-r-4 border-amber-400/80 bg-[#2b3342] p-2 text-center shadow-md">
-            <span className="text-[10px] font-black uppercase tracking-widest text-white/60">
-              START
+          {/* Starting Sidewalk Kerb (Chicken Waiting Zone) */}
+          <div className="relative flex w-28 shrink-0 flex-col items-center justify-between border-r-4 border-amber-400 bg-[#282f3c] p-2 text-center shadow-lg">
+            <span className="text-[10px] font-black uppercase tracking-widest text-amber-300 bg-black/40 px-2 py-0.5 rounded-full">
+              KERB
             </span>
-            <div className="grid h-16 w-16 place-items-center">
-              {lane === 0 && <TopDownChicken />}
+
+            {/* Chicken waiting on the sidewalk before crossing */}
+            <div className="relative grid h-20 w-20 place-items-center">
+              {lane === 0 && <InOutChicken jumping={isJumping} />}
             </div>
-            <div className="text-[10px] font-bold text-white/40">Safe Zone</div>
+
+            <div className="text-[10px] font-black text-white/50 uppercase tracking-tight">
+              SAFE ZONE
+            </div>
           </div>
 
-          {/* 20 Highway Lanes */}
+          {/* Continuous Highway Traffic Lanes with Manhole Multipliers */}
           {Array.from({ length: 20 }, (_, i) => {
             const l = i + 1;
             const isCurrent = lane === l;
             const isPassed = l < lane;
             const isHazardLane = hazard === l;
-            const carType = l % 3 === 0 ? "police" : l % 2 === 0 ? "taxi" : "sports";
+            const carType = l % 4 === 0 ? "police" : l % 3 === 0 ? "truck" : l % 2 === 0 ? "taxi" : "sports";
+            const carSpeed = 2.4 + (l % 3) * 0.7;
+            const carDir = l % 2 === 0 ? "down" : "up";
 
             return (
               <div
                 key={l}
                 className={cn(
-                  "relative flex w-24 shrink-0 flex-col items-center justify-between border-r border-dashed border-white/20 bg-[#1e232f] py-2 transition-all",
+                  "relative flex w-24 shrink-0 flex-col items-center justify-between border-r border-dashed border-white/20 bg-[#1c222d] py-2 transition-all overflow-hidden",
                   isCurrent && "bg-[#252c3b] shadow-inner",
-                  isHazardLane && "bg-rose-950/70"
+                  isHazardLane && "bg-rose-950/80"
                 )}
               >
-                {/* Lane Multiplier Header */}
+                {/* White dashed road center line */}
+                <div className="absolute inset-y-0 right-0 w-[1px] border-r border-dashed border-white/25 pointer-events-none" />
+
+                {/* Continuously Running Traffic Cars (Not waiting for chicken!) */}
+                {!isHazardLane && (
+                  <TrafficCar type={carType} speed={carSpeed} direction={carDir} />
+                )}
+
+                {/* Stamped Lane Multiplier Badge */}
                 <div
                   className={cn(
-                    "rounded-md px-2 py-0.5 font-mono text-xs font-black shadow-sm",
+                    "z-20 rounded-md px-2 py-0.5 font-mono text-xs font-black shadow-md transition",
                     isPassed
-                      ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
+                      ? "bg-emerald-500/25 text-emerald-300 border border-emerald-500/50"
                       : isCurrent
-                      ? "bg-amber-500 text-black shadow-[0_0_10px_#f59e0b]"
-                      : "bg-black/40 text-white/60"
+                      ? "bg-amber-400 text-black shadow-[0_0_12px_#f59e0b] scale-105"
+                      : "bg-black/60 text-white/80 border border-white/10"
                   )}
                 >
                   {laneMult(l).toFixed(2)}x
                 </div>
 
-                {/* Road Surface Center: Manhole Multiplier Cover / Chicken / Car */}
-                <div className="relative grid h-24 w-full place-items-center">
-                  {/* Metal Manhole Cover */}
+                {/* Road Manhole Metal Disc & Active Chicken */}
+                <div className="relative grid h-28 w-full place-items-center z-20">
+                  {/* Metal sewer cover stamped with lane */}
                   <div
                     className={cn(
-                      "grid h-14 w-14 place-items-center rounded-full border-2 transition",
+                      "grid h-16 w-16 place-items-center rounded-full border-2 transition shadow-inner",
                       isPassed
-                        ? "border-emerald-500 bg-emerald-500/10 shadow-[0_0_10px_rgba(16,185,129,0.4)]"
+                        ? "border-emerald-500 bg-emerald-500/15 shadow-[0_0_12px_rgba(16,185,129,0.5)]"
                         : isCurrent
-                        ? "border-amber-400 bg-amber-400/20 scale-105 shadow-[0_0_14px_rgba(245,158,11,0.5)]"
-                        : "border-white/15 bg-black/50"
+                        ? "border-amber-400 bg-amber-400/20 scale-105 shadow-[0_0_16px_rgba(245,158,11,0.6)]"
+                        : "border-white/15 bg-black/60"
                     )}
                   >
                     {isPassed ? (
-                      <Check className="h-6 w-6 text-emerald-400" />
+                      <Check className="h-7 w-7 text-emerald-400" />
                     ) : (
                       <span className="text-[10px] font-black text-white/40">L{l}</span>
                     )}
                   </div>
 
-                  {/* Active Chicken Position */}
+                  {/* Active Chicken Position on current lane */}
                   {isCurrent && (
-                    <div className="absolute inset-0 grid place-items-center z-10 animate-in zoom-in-75 duration-150">
-                      <TopDownChicken hit={isHazardLane} />
+                    <div className="absolute inset-0 grid place-items-center z-30 animate-in zoom-in-75 duration-150">
+                      <InOutChicken hit={isHazardLane} jumping={isJumping} />
                     </div>
                   )}
 
-                  {/* Traffic Car on hazard or ambient hazard lanes */}
-                  {isHazardLane ? (
-                    <div className="absolute inset-0 grid place-items-center z-20 animate-in fade-in duration-200">
-                      <TopDownCar type={carType} />
-                    </div>
-                  ) : (
-                    !sid &&
-                    l % 4 === 2 && (
-                      <div className="absolute opacity-35 pointer-events-none">
-                        <TopDownCar type={carType} />
+                  {/* Crash mark on hazard */}
+                  {isHazardLane && (
+                    <div className="absolute inset-0 grid place-items-center z-40 animate-in zoom-in duration-150">
+                      <div className="text-center">
+                        <span className="text-3xl">🚗💥</span>
+                        <div className="font-display text-[10px] font-black uppercase text-rose-500">
+                          CRASHED
+                        </div>
                       </div>
-                    )
+                    </div>
                   )}
                 </div>
 
-                {/* Lane Number & Footprint Indicator */}
-                <div className="flex items-center gap-1 text-[10px] font-bold text-white/40">
-                  {isPassed ? (
-                    <span className="text-emerald-400">PASSED</span>
-                  ) : (
-                    <span>LANE {l}</span>
-                  )}
+                {/* Lane footer */}
+                <div className="z-20 text-[10px] font-black text-white/40">
+                  {isPassed ? <span className="text-emerald-400">SAFE</span> : `LANE ${l}`}
                 </div>
               </div>
             );
           })}
 
           {/* Finish Line (Golden Egg Safe Sidewalk) */}
-          <div className="flex w-28 shrink-0 flex-col items-center justify-between border-l-4 border-emerald-400 bg-[#1f3a2c] p-2 text-center">
-            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-300">
+          <div className="flex w-28 shrink-0 flex-col items-center justify-between border-l-4 border-emerald-400 bg-[#1c382b] p-2 text-center">
+            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-300 bg-black/40 px-2 py-0.5 rounded-full">
               FINISH
             </span>
-            <div className="grid h-16 w-16 place-items-center">
+            <div className="grid h-20 w-20 place-items-center">
               <span className="text-4xl animate-bounce">🏆</span>
             </div>
-            <div className="text-[10px] font-black text-emerald-400">GOLDEN EGG</div>
+            <div className="text-[10px] font-black text-emerald-400 uppercase">
+              GOLDEN EGG
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Betting & Difficulty Controls */}
+      {/* Betting Console & Difficulty Selector */}
       <div className="rounded-2xl border border-white/10 bg-[#121620] p-4 text-white shadow-xl">
-        {/* Difficulty Selector */}
+        {/* 4 Difficulty Risk Modes */}
         <div className="mb-4">
           <div className="text-[11px] font-bold uppercase tracking-wider text-white/50 mb-1.5 flex items-center justify-between">
             <span>Difficulty Mode</span>
-            <span className="text-amber-400 text-xs">
-              {diff === "easy" && "Low Danger · Safe Stepping"}
-              {diff === "medium" && "Medium Danger · Good Multipliers"}
-              {diff === "hard" && "High Danger · Big Payouts"}
-              {diff === "hardcore" && "Extreme Danger · Maximum Multipliers"}
+            <span className="text-amber-400 text-xs font-bold">
+              {diff === "easy" && "Easy · 30 Steps"}
+              {diff === "medium" && "Medium · 25 Steps"}
+              {diff === "hard" && "Hard · 22 Steps"}
+              {diff === "hardcore" && "Hardcore · 18 Steps"}
             </span>
           </div>
           <div className="grid grid-cols-4 gap-2">
@@ -894,7 +993,7 @@ export function ChickenGame({ game }: { game: GameRow }) {
           </div>
         </div>
 
-        {/* Quick PKR Stake Chips */}
+        {/* Quick PKR Chips */}
         <div className="mb-3 flex items-center justify-between gap-1.5 overflow-x-auto pb-1 no-scrollbar">
           {[100, 200, 500, 1000, 2000, 5000].map((v) => (
             <button
@@ -917,7 +1016,7 @@ export function ChickenGame({ game }: { game: GameRow }) {
           ))}
         </div>
 
-        {/* Stake +/- Input */}
+        {/* Stake Adjustment */}
         <div className="mb-4">
           <div className="text-[11px] font-bold uppercase tracking-wider text-white/50 mb-1">
             Bet Stake (PKR)
@@ -956,7 +1055,7 @@ export function ChickenGame({ game }: { game: GameRow }) {
           </div>
         </div>
 
-        {/* Action Buttons: START vs STEP FORWARD & CASH OUT */}
+        {/* Large Action Buttons (START vs GO & CASH OUT) */}
         {sid ? (
           <div className="grid grid-cols-2 gap-3">
             <button
