@@ -54,7 +54,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
-      { name: "theme-color", content: "#0284C7" },
+      { name: "theme-color", content: "7C3AED" },
       { title: "STAR ZONE — Free-to-Play Games" },
       { name: "description", content: "Play WinGo, Crash, Mines, Plinko and more with free virtual coins on STAR ZONE." },
       { property: "og:title", content: "STAR ZONE — Free-to-Play Games" },
