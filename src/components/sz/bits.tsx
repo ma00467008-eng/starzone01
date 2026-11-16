@@ -1,10 +1,10 @@
 import { Link } from "@tanstack/react-router";
+import { Bell, Plus } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useApp } from "@/lib/app-context";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
-export function Logo({ className }: { className?: string }) {
 export function Logo({ className }: { className?: string }) {
   const { settings } = useApp();
   const name: string = settings["site"]?.name || "WISH 786";
@@ -25,6 +25,8 @@ export function Logo({ className }: { className?: string }) {
     </Link>
   );
 }
+
+export function CoinIcon({ className }: { className?: string }) {
   return (
     <span
       className={cn(
