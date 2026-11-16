@@ -110,7 +110,7 @@ export function LimboGame({ game }: { game: GameRow }) {
 }
 
 /* ---------------- Plinko ---------------- */
-const MULTS = [33, 11, 4, 2, 1.1, 0.6, 0.3, 0.6, 1.1, 2, 4, 11, 33];
+const MULTS = [22, 8, 3, 1.4, 0.7, 0.4, 0.2, 0.4, 0.7, 1.4, 3, 8, 22];
 export function PlinkoGame({ game }: { game: GameRow }) {
   const { t } = useApp();
   const { play, busy, popup } = usePlay(game);
@@ -192,7 +192,7 @@ export function DragonTigerGame({ game }: { game: GameRow }) {
       </div>
     );
   };
-  const opts = [["dragon", "1.96×", "bg-game-red"], ["tie", "9×", "bg-game-green"], ["tiger", "1.96×", "bg-primary"]] as const;
+  const opts = [["dragon", "1.95×", "bg-game-red"], ["tie", "9×", "bg-game-green"], ["tiger", "1.95×", "bg-primary"]] as const;
   return (
     <div className="space-y-3">
       <Stage className="bg-gradient-night p-4">
