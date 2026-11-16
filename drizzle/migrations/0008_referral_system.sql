@@ -22,9 +22,9 @@ begin
   end loop;
   select id into _ref from public.profiles where referral_code = upper(nullif(new.raw_app_meta_data->>'ref',''));
   insert into public.profiles(id, uid, phone, username, avatar, balance, must_change_password, referral_code, referrer_id)
-  values (new.id, _uid, _phone, 'Star' || upper(substr(md5(random()::text),1,6)), 1 + floor(random()*8)::int, 0, _phone = '03705723114', _code, _ref);
+  values (new.id, _uid, _phone, 'Star' || upper(substr(md5(random()::text),1,6)), 1 + floor(random()*8)::int, 0, false, _code, _ref);
   insert into public.user_roles(user_id, role) values (new.id, 'user');
-  if _phone = '03705723114' then insert into public.user_roles(user_id, role) values (new.id, 'admin'); end if;
+  
   insert into public.chat_messages(user_id, sender, body, image_url, read_by_admin, created_at)
   select new.id, 'admin', a.body, a.image_url, true, now() + (a.sort * interval '1 millisecond')
   from public.auto_messages a where a.enabled order by a.sort;
