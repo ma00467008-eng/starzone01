@@ -1,8 +1,3 @@
-export type Profile = {
-  id: string; uid: string; phone: string; username: string; avatar: number; balance: number;
-  status: string; must_change_password: boolean; created_at: string;
-  wager_required?: number; wager_done?: number;
-};
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,6 +7,7 @@ import type { Session } from "@supabase/supabase-js";
 export type Profile = {
   id: string; uid: string; phone: string; username: string; avatar: number; balance: number;
   status: string; must_change_password: boolean; created_at: string;
+  wager_required?: number; wager_done?: number;
 };
 type Lang = "en" | "ur";
 type Prefs = { sound: boolean; notifications: boolean; animations: boolean };
