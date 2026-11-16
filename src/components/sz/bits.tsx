@@ -1,13 +1,13 @@
 import { Link } from "@tanstack/react-router";
-import { Bell, Plus, Star } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useApp } from "@/lib/app-context";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
 export function Logo({ className }: { className?: string }) {
+export function Logo({ className }: { className?: string }) {
   const { settings } = useApp();
-  const name: string = settings["site"]?.name || "STAR ZONE";
+  const name: string = settings["site"]?.name || "WISH 786";
   const logo: string | undefined = settings["site"]?.logo_url;
   return (
     <Link to="/" className={cn("flex items-center gap-2", className)}>
@@ -15,7 +15,7 @@ export function Logo({ className }: { className?: string }) {
         <img src={logo} alt={name} className="h-8 w-8 rounded-lg object-cover" />
       ) : (
         <span className="grid h-8 w-8 place-items-center rounded-lg bg-gradient-primary shadow-glow">
-          <Star className="h-4.5 w-4.5 fill-primary-foreground text-primary-foreground" />
+          <span className="font-display font-black text-sm text-primary-foreground">W</span>
         </span>
       )}
       <span className="font-display text-lg font-extrabold tracking-tight text-foreground">
@@ -25,8 +25,6 @@ export function Logo({ className }: { className?: string }) {
     </Link>
   );
 }
-
-export function CoinIcon({ className }: { className?: string }) {
   return (
     <span
       className={cn(
