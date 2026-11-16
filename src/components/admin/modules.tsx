@@ -213,30 +213,157 @@ function DeductionsPanel() {
   );
 }
 
+/* ---------------- Coin deductions ---------------- */
+function DeductionsPanel() {
+  const [filter, setFilter] = useState("pending");
+  const refresh = useRefresh();
+  const { data: reqs } = useQuery({
+    queryKey: ["adm", "deductions", filter],
+    queryFn: async () => {
+      let q = db.from("coin_deductions").select("*");
+      if (filter === "cross_bet") {
+        q = q.eq("is_cross_bet", true).order("created_at", { ascending: false }).limit(100);
+      } else {
+        q = q.eq("status", filter).order("created_at", { ascending: filter === "pending" }).limit(100);
+      }
+      const r = (await q).data ?? [];
+      const ids = [...new Set(r.map((x: Row) => x.user_id))];
+      const ps = ids.length ? (await db.from("profiles").select("id,uid,username,phone,balance").in("id", ids)).data ?? [] : [];
+      const m = Object.fromEntries(ps.map((p: Row) => [p.id, p]));
+      return r.map((x: Row) => ({ ...x, p: m[x.user_id] }));
+    },
+  });
+  const [busy, setBusy] = useState<string | null>(null);
+  const [rejectItem, setRejectItem] = useState<Row | null>(null);
+  const [rejectNote, setRejectNote] = useState("");
+  const [penaltyWager, setPenaltyWager] = useState(0);
+
+  const startReject = (r: Row) => {
+    setRejectItem(r);
+    setRejectNote(r.is_cross_bet ? "Our system detected cross betting in your gameplay. Please complete the additional wagering requirement before requesting another withdrawal." : "Your withdrawal request was not approved.");
+    setPenaltyWager(r.is_cross_bet ? Math.round(Number(r.amount) * 2) : 0);
+  };
+
+  const confirmReject = async () => {
+    if (!rejectItem) return;
+    setBusy(rejectItem.id);
+    await run(supabase.rpc("admin_review_deduction", {
+      _id: rejectItem.id,
+      _approve: false,
+      _note: rejectNote,
+      _penalty_wager: penaltyWager || 0,
+    }), "Rejected withdrawal request");
+    setBusy(null);
+    setRejectItem(null);
+    refresh("deductions", "stats");
+  };
+
+  const approve = async (r: Row) => {
+    setBusy(r.id);
+    await run(supabase.rpc("admin_review_deduction", {
+      _id: r.id,
+      _approve: true,
+      _note: "",
+      _penalty_wager: 0,
+    }), "Approved & deducted");
+    setBusy(null);
+    refresh("deductions", "stats");
+  };
+
+  return (
+    <>
+      <Panel title="Coin deduction requests" actions={
+        <div className="flex flex-wrap gap-1">
+          {["pending", "cross_bet", "approved", "rejected"].map((s) => (
+            <Btn
+              key={s}
+              variant={filter === s ? "primary" : "ghost"}
+              onClick={() => setFilter(s)}
+              className={cn("capitalize", s === "cross_bet" && "text-amber-400")}
+            >
+              {s === "cross_bet" ? "⚠️ Cross-Bet Flags" : s}
+            </Btn>
+          ))}
+        </div>
+      }>
+        {!reqs?.length ? <Empty text="No requests" /> : (
+          <ul className="divide-y divide-border">
+            {reqs.map((r: Row) => (
+              <li key={r.id} className="flex flex-wrap items-center gap-3 py-3 text-sm">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2 font-semibold">
+                    <span>{r.p?.username}</span>
+                    <span className="font-mono text-xs text-muted-foreground">UID {r.p?.uid} · {r.p?.phone} · Bal {fmt(r.p?.balance ?? 0)}</span>
+                    {r.is_cross_bet && (
+                      <span className="rounded-full bg-rose-500/20 px-2 py-0.5 text-xs font-bold text-rose-400">
+                        ⚠️ Cross-Bet ({r.cross_bet_count}x detected)
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {when(r.created_at)} · {r.method?.toUpperCase()} · {r.account_name} ({r.account_number})
+                    {r.note ? ` · “${r.note}”` : ""}
+                    {r.admin_note ? ` · Admin: ${r.admin_note}` : ""}
+                  </div>
+                </div>
+                <div className="font-display text-lg font-bold text-destructive">−{fmt(r.amount)}</div>
+                {r.status === "pending" ? (
+                  <div className="flex gap-1">
+                    <Btn variant="success" disabled={busy === r.id} onClick={() => approve(r)}><Check className="h-4 w-4" />Approve</Btn>
+                    <Btn variant="danger" disabled={busy === r.id} onClick={() => startReject(r)}><X className="h-4 w-4" />Reject</Btn>
+                  </div>
+                ) : <StatusPill s={r.status} />}
+              </li>
+            ))}
+          </ul>
+        )}
+      </Panel>
+
+      {/* Reject Modal */}
+      {rejectItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-border bg-card p-5 shadow-2xl">
+            <h3 className="text-base font-bold text-foreground">Reject Withdrawal Request</h3>
+            <p className="mt-1 text-xs text-muted-foreground">
+              User: <span className="font-semibold text-foreground">{rejectItem.p?.username}</span> (Amount: {fmt(rejectItem.amount)} PKR)
+              {rejectItem.is_cross_bet && <span className="block mt-1 font-semibold text-rose-400">⚠️ Flagged for {rejectItem.cross_bet_count} cross bets</span>}
+            </p>
+            <div className="mt-4 space-y-3">
+              <Field label="Rejection reason (shown to user)">
+                <textarea
+                  value={rejectNote}
+                  onChange={(e) => setRejectNote(e.target.value)}
+                  className={areaCls}
+                  rows={3}
+                />
+              </Field>
+              <Field label="Add Penalty Betting Wager (PKR)">
+                <input
+                  type="number"
+                  min="0"
+                  value={penaltyWager}
+                  onChange={(e) => setPenaltyWager(Number(e.target.value))}
+                  placeholder="e.g. 2000"
+                  className={inputCls}
+                />
+                <span className="text-[11px] text-muted-foreground">
+                  This turnover will be added to the player's required wagering requirement before they can withdraw again.
+                </span>
+              </Field>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <Btn variant="ghost" onClick={() => setRejectItem(null)}>Cancel</Btn>
+              <Btn variant="danger" disabled={busy === rejectItem.id} onClick={confirmReject}>Confirm Rejection</Btn>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 /* ---------------- Coins ---------------- */
-export function CoinsMod(<div className="mt-3 grid gap-3 md:grid-cols-2">
-  <Field label="1st Deposit Wager Multiplier (e.g. 2 for 2x)">
-    <input
-      type="number"
-      step="0.1"
-      min="0"
-      value={d.wager_first ?? 2}
-      onChange={(e) => set({ wager_first: Number(e.target.value) })}
-      className={inputCls}
-    />
-  </Field>
-  <Field label="2nd+ Deposit Wager Multiplier (e.g. 1 for 1x)">
-    <input
-      type="number"
-      step="0.1"
-      min="0"
-      value={d.wager_next ?? 1}
-      onChange={(e) => set({ wager_next: Number(e.target.value) })}
-      className={inputCls}
-    />
-  </Field>
-</div>
-) {
+export function CoinsMod() {
   const [filter, setFilter] = useState("pending");
   const refresh = useRefresh();
   const { data: reqs } = useQuery({
@@ -291,6 +418,28 @@ export function CoinsMod(<div className="mt-3 grid gap-3 md:grid-cols-2">
           <Field label="Minimum"><input type="number" value={d.min ?? 300} onChange={(e) => set({ min: Number(e.target.value) })} className={inputCls} /></Field>
           <Field label="Maximum"><input type="number" value={d.max ?? 10000} onChange={(e) => set({ max: Number(e.target.value) })} className={inputCls} /></Field>
           <Field label="Requests per day"><input type="number" value={d.daily_limit ?? 3} onChange={(e) => set({ daily_limit: Number(e.target.value) })} className={inputCls} /></Field>
+        </div>
+        <div className="mt-3 grid gap-3 md:grid-cols-2">
+          <Field label="1st Deposit Wager Multiplier (e.g. 2 for 2x)">
+            <input
+              type="number"
+              step="0.1"
+              min="0"
+              value={d.wager_first ?? 2}
+              onChange={(e) => set({ wager_first: Number(e.target.value) })}
+              className={inputCls}
+            />
+          </Field>
+          <Field label="2nd+ Deposit Wager Multiplier (e.g. 1 for 1x)">
+            <input
+              type="number"
+              step="0.1"
+              min="0"
+              value={d.wager_next ?? 1}
+              onChange={(e) => set({ wager_next: Number(e.target.value) })}
+              className={inputCls}
+            />
+          </Field>
         </div>
         <div className="mt-3 space-y-3">
           <Field label="Amount buttons (comma separated)"><input value={(d.amounts ?? [300, 500, 1000, 2000, 5000, 10000]).join(", ")} onChange={(e) => set({ amounts: e.target.value.split(",").map((x) => Number(x.trim())).filter((x) => x > 0) })} className={inputCls} /></Field>
