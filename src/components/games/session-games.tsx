@@ -181,18 +181,7 @@ export function CrashGame({ game }: { game: GameRow }) {
           // If previous session is stuck, attempt auto-reset/clear and retry once
           if (msg.toLowerCase().includes("finish your current") || msg.toLowerCase().includes("active")) {
             try {
-              const { data: stuck } = await supabase
-                .from("game_sessions")
-                .select("id")
-                .eq("game", "aviator")
-                .eq("active", true)
-                .order("created_at", { ascending: false })
-                .limit(1)
-                .maybeSingle();
-
-              if (stuck?.id) {
-                await (supabase.rpc as any)("crash_check", { _session: stuck.id, _cashout: false });
-              }
+              await (supabase.rpc as any)("crash_reset_stuck");
             } catch { /* ignore */ }
 
             const retry = await (supabase.rpc as any)("crash_start", {
@@ -673,7 +662,31 @@ export function MinesGame({ game }: { game: GameRow }) {
       beep("bet");
       after((data as any)?.balance);
     } catch (e) {
-      toast.error(errMsg(e));
+      const msg = errMsg(e);
+      if (msg.toLowerCase().includes("finish your current") || msg.toLowerCase().includes("active")) {
+        try {
+          await (supabase.rpc as any)("mines_reset_stuck");
+          const retry = await (supabase.rpc as any)("mines_start", {
+            _stake: stake,
+            _mines: mines,
+          });
+          if (!retry.error) {
+            const session = (retry.data as any)?.session;
+            setSid(session);
+            setActive(true);
+            setRevealed([]);
+            setMineTiles([]);
+            setHit(null);
+            setPayout(0);
+            setMult(1);
+            beep("bet");
+            after((retry.data as any)?.balance);
+            toast.success("Previous stuck round cleared! New game started.");
+            return;
+          }
+        } catch { /* ignore */ }
+      }
+      toast.error(msg);
     } finally {
       setBusy(false);
     }
