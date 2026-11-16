@@ -209,26 +209,48 @@ export function CrashGame({ game }: { game: GameRow }) {
         _cashout: manualCashout,
       });
       if (error) {
-        sidRef.current = null;
+        if (manualCashout) {
+          toast.error(errMsg(error));
+        }
         return;
       }
       const res = data as any;
-      if (res?.cashed) {
-        const win = Number(res.multiplier);
+      if (!res) return;
+
+      // 1. User cashed out successfully (manual or auto-triggered)
+      // Supabase _crash_settle returns { crashed: true, crash: c, cashout: m, payout: payout, balance: b }
+      if (res.cashout != null) {
+        const win = Number(res.cashout);
         setCashedOutAt(win);
+        sidRef.current = null;
         beep("cashout");
         toast.success(`Cashed out at ${win.toFixed(2)}×! (+${fmt(Number(res.payout))})`);
         after(res.balance);
+        return;
       }
-      if (res?.crashed) {
+
+      // 2. Flight crashed before user cashed out
+      if (res.crashed) {
         sidRef.current = null;
-        handleCrash(Number(res.final_multiplier) || mult);
+        const crashMult = Number(res.crash) || mult;
+        handleCrash(crashMult);
         if (!cashedOutAt) {
           beep("explode");
         }
+        return;
       }
-    } catch {
-      // ignore
+
+      // 3. Normal flight multiplier update
+      if (res.multiplier && !manualCashout) {
+        const serverMult = Number(res.multiplier);
+        if (serverMult > mult) {
+          setMult(serverMult);
+        }
+      }
+    } catch (e: any) {
+      if (manualCashout) {
+        toast.error(errMsg(e));
+      }
     }
   };
 
@@ -248,6 +270,7 @@ export function CrashGame({ game }: { game: GameRow }) {
     // Wait 2.5s showing crash, then restart 10s countdown
     setTimeout(() => {
       setPhase("countdown");
+      setCashedOutAt(null);
     }, 2500);
   };
 
@@ -460,10 +483,15 @@ export function CrashGame({ game }: { game: GameRow }) {
               type="button"
               onClick={() => cashout(false)}
               disabled={busy}
-              className="w-full h-12 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 text-white font-display text-base font-black tracking-wide shadow-lg shadow-orange-500/30 transition hover:brightness-110 active:scale-98"
+              className="w-full h-12 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 text-white font-display text-base font-black tracking-wide shadow-lg shadow-orange-500/30 transition hover:brightness-110 active:scale-98 cursor-pointer disabled:opacity-60"
             >
-              CASH OUT ({fmt(stake * mult)})
+              {busy ? "CASHING OUT..." : `CASH OUT (${fmt(stake * mult)})`}
             </button>
+          ) : cashedOutAt ? (
+            <div className="w-full h-12 rounded-xl bg-emerald-600/20 border-2 border-emerald-500/60 flex items-center justify-center gap-2 text-emerald-400 font-display font-black text-sm shadow-lg shadow-emerald-500/20 animate-pulse">
+              <span>✓ CASHED OUT AT {cashedOutAt.toFixed(2)}×</span>
+              <span className="text-white font-mono">({fmt(stake * cashedOutAt)})</span>
+            </div>
           ) : phase === "countdown" ? (
             <button
               type="button"
@@ -1024,7 +1052,10 @@ export function ChickenGame({ game }: { game: GameRow }) {
   const [active, setActive] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  // Current road crossed count: 0 = at start curb, 1 = Road 1, 2 = Road 2, etc. (up to 20)
+  // Current road crossed count:
+  // 0 = at START CURB / SIDEWALK (safe, NOT on road 1 yet)
+  // 1 = crossed into Road 1 (cleared, cars on Road 1 stopped)
+  // 2 = crossed into Road 2, etc. (up to 20)
   const [lane, setLane] = useState(0);
   const [crushed, setCrushed] = useState(false);
   const [hopping, setHopping] = useState(false);
@@ -1032,35 +1063,33 @@ export function ChickenGame({ game }: { game: GameRow }) {
   const [mult, setMult] = useState(1);
   const [hasStuckRound, setHasStuckRound] = useState(false);
 
-  // Dynamic 3-Road Visible Window: Screen displays exactly 3 roads at all times!
-  // When chicken crosses a road, the view shifts: previous road moves off and next road appears!
-  // If lane === 0: roads [1, 2, 3] are visible, chicken is at curb on left of Road 1.
-  // If lane >= 1: visible roads are [lane, lane + 1, lane + 2], chicken is on the first road (lane)!
-  const startRoadNum = lane <= 1 ? 1 : lane;
-  const visibleRoads = [startRoadNum, startRoadNum + 1, startRoadNum + 2];
-
-  // Traffic Animation on the upcoming roads (roads ahead of chicken)
-  const [carLaneOffset, setCarLaneOffset] = useState<number | null>(null); // 1 or 2 (upcoming lanes in 3-road view)
+  // Traffic Animation on upcoming danger roads (slots 1 and 2)
+  const [carLaneOffset, setCarLaneOffset] = useState<number | null>(null); // 1 or 2
   const [carY, setCarY] = useState<number>(-140);
   const [carColor, setCarColor] = useState<string>("#DC2626");
 
-  // Restore existing active session if browser refreshed or returned
+  const clearLocalChickenState = useCallback(() => {
+    localStorage.removeItem("sz_chicken_sid");
+    localStorage.removeItem("sz_chicken_lane");
+    localStorage.removeItem("sz_chicken_mult");
+    setSid(null);
+    setActive(false);
+    setLane(0);
+    setMult(1);
+    setCrushed(false);
+    setRunning(false);
+    setHopping(false);
+    setHasStuckRound(false);
+  }, []);
+
+  // Sync with Supabase on mount: DO NOT assume localStorage is active!
+  // If no active session in database, wipe local state completely.
   useEffect(() => {
     let mounted = true;
-    const restore = async () => {
-      try {
-        const saved = localStorage.getItem("sz_chicken_sid");
-        if (saved && mounted) {
-          setSid(saved);
-          setActive(true);
-          const savedLane = Number(localStorage.getItem("sz_chicken_lane") || "0");
-          setLane(savedLane);
-          const savedMult = Number(localStorage.getItem("sz_chicken_mult") || "1");
-          setMult(savedMult > 1 ? savedMult : getChickenRoadMult(savedLane, diff));
-          return;
-        }
 
-        const { data } = await supabase
+    const syncSession = async () => {
+      try {
+        const { data, error } = await supabase
           .from("game_sessions")
           .select("id, state, stake, active")
           .eq("game", "chicken")
@@ -1069,37 +1098,38 @@ export function ChickenGame({ game }: { game: GameRow }) {
           .limit(1)
           .maybeSingle();
 
-        if (data?.id && mounted) {
+        if (!mounted) return;
+
+        if (data && data.active && data.id) {
           setSid(data.id);
-          localStorage.setItem("sz_chicken_sid", data.id);
           setActive(true);
           const curLane = Number((data.state as any)?.lane) || 0;
           setLane(curLane);
           const curMult = Number((data.state as any)?.multiplier) || getChickenRoadMult(curLane, diff);
           setMult(curMult);
-          localStorage.setItem("sz_chicken_lane", String(curLane));
-          localStorage.setItem("sz_chicken_mult", String(curMult));
+          if ((data as any)?.stake) setStake(Number((data as any).stake));
+        } else {
+          clearLocalChickenState();
         }
       } catch {
-        // ignore
+        if (mounted) clearLocalChickenState();
       }
     };
-    restore();
+
+    syncSession();
     return () => {
       mounted = false;
     };
-  }, [diff]);
+  }, [diff, clearLocalChickenState]);
 
-  // Traffic loop on the upcoming visible roads:
-  // Once chicken crosses into a road, cars for that road STOP!
-  // Speeding cars only zoom down on the upcoming roads ahead of the chicken.
+  // Traffic loop on the upcoming danger roads (slots 1 and 2):
+  // Slot 0 is ALWAYS safe: either START CURB (lane === 0) or Cleared Road (lane >= 1).
+  // Cars only drive down slots 1 and 2!
   useEffect(() => {
     const CAR_COLORS = ["#DC2626", "#2563EB", "#EAB308", "#10B981", "#8B5CF6", "#EA580C"];
 
     const trafficInterval = setInterval(() => {
-      // Upcoming roads in current 3-road view:
-      // index 0 is chicken's road (cars stopped). index 1 and 2 are upcoming roads!
-      const upcomingIndices = lane === 0 ? [0, 1, 2] : [1, 2];
+      const upcomingIndices = [1, 2];
       const targetOffset = upcomingIndices[Math.floor(Math.random() * upcomingIndices.length)] ?? 1;
       const randomColor = CAR_COLORS[Math.floor(Math.random() * CAR_COLORS.length)] ?? "#DC2626";
 
@@ -1121,7 +1151,7 @@ export function ChickenGame({ game }: { game: GameRow }) {
     }, 3600);
 
     return () => clearInterval(trafficInterval);
-  }, [lane]);
+  }, []);
 
   const start = async () => {
     setBusy(true);
@@ -1134,13 +1164,8 @@ export function ChickenGame({ game }: { game: GameRow }) {
       if (error) throw error;
       const session = (data as any)?.session;
       setSid(session);
-      if (session) {
-        localStorage.setItem("sz_chicken_sid", session);
-        localStorage.setItem("sz_chicken_lane", "0");
-        localStorage.setItem("sz_chicken_mult", "1");
-      }
       setActive(true);
-      setLane(0);
+      setLane(0); // Safely waiting at START CURB
       setCrushed(false);
       setRunning(false);
       setMult(1);
@@ -1149,34 +1174,29 @@ export function ChickenGame({ game }: { game: GameRow }) {
     } catch (e: any) {
       const msg = errMsg(e);
       if (msg.toLowerCase().includes("current round")) {
-        setHasStuckRound(true);
-        const saved = localStorage.getItem("sz_chicken_sid");
-        if (saved) {
-          setSid(saved);
-          setActive(true);
-          toast.info("Resumed your active Chicken Road run!");
-          return;
-        }
+        // Attempt automatic clearing of stuck round
         try {
           await (supabase.rpc as any)("chicken_reset_stuck");
-          toast.info("Stuck round resolved! Retrying run...");
           const retry = await (supabase.rpc as any)("chicken_start", {
             _stake: stake,
             _difficulty: diff,
           });
-          if (!retry.error) {
-            setSid(retry.data?.session);
+          if (!retry.error && retry.data?.session) {
+            setSid(retry.data.session);
             setActive(true);
             setLane(0);
             setCrushed(false);
+            setRunning(false);
             setMult(1);
-            setHasStuckRound(false);
-            after(retry.data?.balance);
+            beep("bet");
+            after(retry.data.balance);
+            toast.success("Previous stuck round cleared. Starting fresh run!");
             return;
           }
         } catch {
           // ignore
         }
+        setHasStuckRound(true);
         toast.error("Finish your current round first. Tap 'Clear Stuck Round' below.");
       } else {
         toast.error(msg);
@@ -1204,9 +1224,7 @@ export function ChickenGame({ game }: { game: GameRow }) {
         setRunning(false);
         setCrushed(true);
         setActive(false);
-        localStorage.removeItem("sz_chicken_sid");
-        localStorage.removeItem("sz_chicken_lane");
-        localStorage.removeItem("sz_chicken_mult");
+        clearLocalChickenState();
         beep("explode");
         toast.error("SPLAT! A speeding car crushed the chicken!");
         after(res.balance);
@@ -1217,9 +1235,7 @@ export function ChickenGame({ game }: { game: GameRow }) {
         setLane(newLane);
         setMult(Number(res.multiplier) || getChickenRoadMult(newLane, diff));
         setActive(false);
-        localStorage.removeItem("sz_chicken_sid");
-        localStorage.removeItem("sz_chicken_lane");
-        localStorage.removeItem("sz_chicken_mult");
+        clearLocalChickenState();
         beep("win");
         setTimeout(() => {
           setRunning(false);
@@ -1229,23 +1245,31 @@ export function ChickenGame({ game }: { game: GameRow }) {
         after(res.balance);
       } else {
         // Sprinted safely across to next road!
-        const newLane = (res?.lane !== undefined) ? Number(res.lane) : lane + 1;
+        const newLane = res?.lane !== undefined ? Number(res.lane) : lane + 1;
         setRunning(true);
         setLane(newLane);
         const newMult = Number(res?.multiplier) || getChickenRoadMult(newLane, diff);
         setMult(newMult);
-        localStorage.setItem("sz_chicken_lane", String(newLane));
-        localStorage.setItem("sz_chicken_mult", String(newMult));
         beep("step");
         setTimeout(() => {
           setRunning(false);
           setHopping(false);
         }, 500);
       }
-    } catch (e) {
+    } catch (e: any) {
       setHopping(false);
       setRunning(false);
-      toast.error(errMsg(e));
+      const msg = errMsg(e);
+      if (
+        msg.toLowerCase().includes("no active round") ||
+        msg.toLowerCase().includes("not found") ||
+        msg.toLowerCase().includes("invalid")
+      ) {
+        clearLocalChickenState();
+        toast.info("No active round found. You can start a new run now!");
+      } else {
+        toast.error(msg);
+      }
     } finally {
       setBusy(false);
     }
@@ -1260,15 +1284,24 @@ export function ChickenGame({ game }: { game: GameRow }) {
       });
       if (error) throw error;
       const res = data as any;
-      setActive(false);
-      localStorage.removeItem("sz_chicken_sid");
-      localStorage.removeItem("sz_chicken_lane");
-      localStorage.removeItem("sz_chicken_mult");
-      beep("win");
-      toast.success(`Cashed out ${fmt(Number(res?.payout || stake * mult))}`);
+      const winMult = Number(res?.multiplier) || mult;
+      const winPayout = Number(res?.payout) || Math.floor(stake * mult);
+      beep("cashout");
+      toast.success(`Cashed out at ${winMult.toFixed(2)}×! (+${fmt(winPayout)})`);
+      clearLocalChickenState();
       after(res?.balance);
-    } catch (e) {
-      toast.error(errMsg(e));
+    } catch (e: any) {
+      const msg = errMsg(e);
+      if (
+        msg.toLowerCase().includes("no active round") ||
+        msg.toLowerCase().includes("not found") ||
+        msg.toLowerCase().includes("invalid")
+      ) {
+        clearLocalChickenState();
+        toast.info("No active round found. You can start a new run now!");
+      } else {
+        toast.error(msg);
+      }
     } finally {
       setBusy(false);
     }
@@ -1277,34 +1310,12 @@ export function ChickenGame({ game }: { game: GameRow }) {
   const clearStuckRound = async () => {
     setBusy(true);
     try {
-      try {
-        await (supabase.rpc as any)("chicken_reset_stuck");
-      } catch {
-        // ignore
-      }
-
-      const saved = sid || localStorage.getItem("sz_chicken_sid");
-      if (saved) {
-        try {
-          await (supabase.rpc as any)("chicken_cashout", { _session: saved });
-        } catch {
-          try {
-            await (supabase.rpc as any)("chicken_step", { _session: saved });
-          } catch {
-            // ignore
-          }
-        }
-      }
-
-      localStorage.removeItem("sz_chicken_sid");
-      localStorage.removeItem("sz_chicken_lane");
-      localStorage.removeItem("sz_chicken_mult");
-      setSid(null);
-      setActive(false);
-      setHasStuckRound(false);
+      await (supabase.rpc as any)("chicken_reset_stuck");
+      clearLocalChickenState();
       toast.success("Round reset! You can now start a new run.");
     } catch (e) {
-      toast.error("Could not auto-clear. Please execute the SQL reset in Supabase.");
+      clearLocalChickenState();
+      toast.success("Round reset locally! You can now start a new run.");
     } finally {
       setBusy(false);
     }
@@ -1314,7 +1325,7 @@ export function ChickenGame({ game }: { game: GameRow }) {
 
   return (
     <div className="space-y-4 font-sans">
-      {/* Chicken Road 2 Scrolling Highway Scene: 3 Roads visible at all times */}
+      {/* Chicken Road 2 Scrolling Highway Scene: 3 Segments visible at all times */}
       <Card className="relative overflow-hidden p-0 border-border/60 bg-[#101114] shadow-2xl rounded-2xl">
         {/* Status header with current road and current multiplier */}
         <div className="flex items-center justify-between border-b border-border/40 bg-black/60 px-4 py-2.5 text-xs">
@@ -1334,39 +1345,73 @@ export function ChickenGame({ game }: { game: GameRow }) {
           </div>
         </div>
 
-        {/* 3 Visible Roads Layout (Smooth treadmill scroll: as chicken advances, previous road drops off and next appears) */}
+        {/* 3 Visible Segments Layout:
+            - When lane === 0:
+              Slot 0: START CURB / SIDEWALK (Safe Zone, chicken stands here! NOT on Road 1!)
+              Slot 1: ROAD 1
+              Slot 2: ROAD 2
+            - When lane >= 1:
+              Slot 0: ROAD {lane} (Current road chicken is on, cleared, cars STOPPED)
+              Slot 1: ROAD {lane + 1}
+              Slot 2: ROAD {lane + 2} */}
         <div className="relative h-80 sm:h-96 md:h-[420px] w-full grid grid-cols-3 bg-[#141518] p-0 select-none overflow-hidden">
-          {visibleRoads.map((roadNum, idx) => {
-            const isChickenHere = (lane === 0 && idx === 0) || (lane > 0 && idx === 0);
-            const isRoadCleared = lane >= roadNum;
-            const roadMult = getChickenRoadMult(roadNum, diff);
+          {[0, 1, 2].map((slotIdx) => {
+            const isStartCurb = lane === 0 && slotIdx === 0;
+            const roadNum = lane === 0 ? slotIdx : lane + slotIdx;
+            const isCleared = !isStartCurb && lane >= roadNum;
+            const roadMult = isStartCurb ? 1 : getChickenRoadMult(roadNum, diff);
 
             return (
               <div
-                key={roadNum}
+                key={`${lane}-${slotIdx}`}
                 className={cn(
-                  "relative flex flex-col items-center justify-center border-r-2 border-dashed border-amber-400/40 transition-colors duration-500",
-                  idx === 0 ? "bg-[#18191e]" : idx === 1 ? "bg-[#16171b]" : "bg-[#141518]",
-                  idx === 2 ? "border-r-0" : ""
+                  "relative flex flex-col items-center justify-center transition-colors duration-500",
+                  isStartCurb
+                    ? "bg-gradient-to-r from-[#1e293b] via-[#1a2333] to-[#161e2e] border-r-4 border-amber-400/80"
+                    : slotIdx === 0
+                    ? "bg-[#18191e] border-r-2 border-dashed border-amber-400/40"
+                    : slotIdx === 1
+                    ? "bg-[#16171b] border-r-2 border-dashed border-amber-400/40"
+                    : "bg-[#141518]"
                 )}
               >
-                {/* Real Road Number & Payout Multiplier Badge */}
-                <div className="absolute top-3 z-10 flex flex-col items-center gap-1">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground bg-black/70 px-2 py-0.5 rounded-md border border-white/10">
-                    ROAD {roadNum}
-                  </span>
-                  <span className="text-xs font-mono font-black text-amber-300 bg-black/80 px-2.5 py-0.5 rounded-full border border-amber-400/30 shadow-md">
-                    {roadMult.toFixed(2)}×
-                  </span>
-                </div>
+                {isStartCurb ? (
+                  /* Start Curb Sidewalk Safe Zone */
+                  <div className="absolute top-3 z-10 flex flex-col items-center gap-1">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 bg-black/80 px-2 py-0.5 rounded-md border border-emerald-500/30 flex items-center gap-1">
+                      <span>🏁</span> START CURB
+                    </span>
+                    <span className="text-[10px] font-mono font-bold text-muted-foreground bg-black/60 px-2 py-0.5 rounded-full">
+                      SAFE ZONE
+                    </span>
+                  </div>
+                ) : (
+                  /* Highway Road & Multiplier Badge */
+                  <div className="absolute top-3 z-10 flex flex-col items-center gap-1">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground bg-black/70 px-2 py-0.5 rounded-md border border-white/10">
+                      ROAD {roadNum}
+                    </span>
+                    <span className="text-xs font-mono font-black text-amber-300 bg-black/80 px-2.5 py-0.5 rounded-full border border-amber-400/30 shadow-md">
+                      {roadMult.toFixed(2)}×
+                    </span>
+                  </div>
+                )}
 
-                {/* If road is cleared or chicken is safely on this road: CARS STOP! */}
-                {isRoadCleared ? (
+                {/* Cars on this slot: */}
+                {isStartCurb ? (
+                  /* No cars ever drive on the sidewalk! */
+                  <div className="absolute bottom-12 text-center opacity-30 select-none">
+                    <p className="text-[11px] font-mono text-emerald-300 font-bold uppercase tracking-wider">
+                      PEDESTRIAN CURB
+                    </p>
+                  </div>
+                ) : isCleared ? (
+                  /* Road is cleared: Cars STOPPED with red brake lights! */
                   <div className="absolute top-16 z-20 pointer-events-none transition-all duration-300">
                     <HighwayCar color="#DC2626" stopped />
                   </div>
-                ) : carLaneOffset === idx ? (
-                  /* Speeding car on upcoming road */
+                ) : carLaneOffset === slotIdx ? (
+                  /* Speeding car on upcoming danger road */
                   <div
                     className="absolute z-20 pointer-events-none transition-all duration-75"
                     style={{ top: `${carY}px` }}
@@ -1375,9 +1420,11 @@ export function ChickenGame({ game }: { game: GameRow }) {
                   </div>
                 ) : null}
 
-                {/* Bottom Lane Status Label */}
+                {/* Bottom Status Label */}
                 <span className="absolute bottom-3 text-[10px] font-mono tracking-widest font-black">
-                  {isRoadCleared ? (
+                  {isStartCurb ? (
+                    <span className="text-emerald-400">WAITING TO CROSS</span>
+                  ) : isCleared ? (
                     <span className="text-emerald-400">CLEARED ✓</span>
                   ) : (
                     <span className="text-muted-foreground/40">DANGER ZONE</span>
@@ -1388,7 +1435,8 @@ export function ChickenGame({ game }: { game: GameRow }) {
           })}
 
           {/* Realistic Running White Chicken Overlay:
-              Sits centered in Lane 0 of the visible 3 roads, and during a step sprint, runs realistically across to Lane 1! */}
+              Sits in Slot 0 (left: 16.666%).
+              When player clicks RUN, it sprints across into Slot 1 (left: 50%)! */}
           <div
             className="absolute inset-y-0 pointer-events-none z-30 flex items-center justify-center transition-all duration-500 ease-in-out"
             style={{
@@ -1488,7 +1536,7 @@ export function ChickenGame({ game }: { game: GameRow }) {
               type="button"
               onClick={stepForward}
               disabled={busy || crushed || lane >= 20}
-              className="h-13 rounded-xl bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-600 text-black font-display text-base font-black tracking-wide shadow-xl shadow-amber-500/25 transition active:scale-98 hover:brightness-110 flex items-center justify-center gap-2 border border-yellow-400/60 disabled:opacity-50"
+              className="h-13 rounded-xl bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-600 text-black font-display text-base font-black tracking-wide shadow-xl shadow-amber-500/25 transition active:scale-98 hover:brightness-110 flex items-center justify-center gap-2 border border-yellow-400/60 disabled:opacity-50 cursor-pointer"
             >
               <span className="text-xl animate-bounce">🐔</span>
               <span>RUN TO ROAD {lane + 1} 💨</span>
@@ -1498,9 +1546,9 @@ export function ChickenGame({ game }: { game: GameRow }) {
               type="button"
               onClick={cash}
               disabled={busy || crushed || lane === 0}
-              className="h-13 rounded-xl bg-gradient-to-r from-emerald-600 via-green-600 to-emerald-700 text-white font-display text-base font-black tracking-wide shadow-xl shadow-emerald-500/25 transition active:scale-98 hover:brightness-110 flex items-center justify-center gap-2 border border-emerald-400/50 disabled:opacity-50"
+              className="h-13 rounded-xl bg-gradient-to-r from-emerald-600 via-green-600 to-emerald-700 text-white font-display text-base font-black tracking-wide shadow-xl shadow-emerald-500/25 transition active:scale-98 hover:brightness-110 flex items-center justify-center gap-2 border border-emerald-400/50 disabled:opacity-50 cursor-pointer"
             >
-              <span>CASHOUT {fmt(currentPayout)}</span>
+              <span>{lane === 0 ? "WAITING AT START" : `CASHOUT ${fmt(currentPayout)}`}</span>
             </button>
           </div>
         ) : (
@@ -1508,7 +1556,7 @@ export function ChickenGame({ game }: { game: GameRow }) {
             type="button"
             onClick={start}
             disabled={busy}
-            className="w-full h-13 rounded-xl bg-gradient-to-r from-primary via-primary/95 to-primary text-primary-foreground font-display text-base font-black tracking-wide shadow-xl shadow-primary/20 transition active:scale-98 hover:brightness-110 border border-primary/40"
+            className="w-full h-13 rounded-xl bg-gradient-to-r from-primary via-primary/95 to-primary text-primary-foreground font-display text-base font-black tracking-wide shadow-xl shadow-primary/20 transition active:scale-98 hover:brightness-110 border border-primary/40 cursor-pointer"
           >
             START RUN ({fmt(stake)})
           </button>
