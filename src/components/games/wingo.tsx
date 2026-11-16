@@ -123,28 +123,25 @@ export function WinGoResultPopup({
           style={{ background: "#f8f9fa", border: "1px solid #e9ecef" }}
         >
           <div className="font-semibold text-gray-700">Lottery Results</div>
-          <div className="mt-2 flex justify-center items-center gap-1.5 flex-wrap">
-            {colors.map((c) => (
+          <div className="mt-2.5 flex justify-center items-center gap-2 flex-wrap">
+            <Ball n={winningNumber} size="md" />
+            <div className="flex items-center gap-1.5">
+              {colors.map((c) => (
+                <span
+                  key={c}
+                  className="px-3 py-1 rounded-xl text-white font-bold text-[13px] capitalize leading-tight"
+                  style={{ backgroundColor: colorBgHex[c] || "#28a745" }}
+                >
+                  {c}
+                </span>
+              ))}
               <span
-                key={c}
-                className="px-3 py-1 rounded-xl text-white font-bold text-[13px] capitalize leading-tight"
-                style={{ backgroundColor: colorBgHex[c] || "#28a745" }}
+                className="px-3 py-1 rounded-xl text-white font-bold text-[13px] leading-tight"
+                style={{ backgroundColor: colorBgHex[primaryColor] || "#28a745" }}
               >
-                {c}
+                {isBig ? "Big" : "Small"}
               </span>
-            ))}
-            <span
-              className="px-3 py-1 rounded-xl text-white font-bold text-[13px] leading-tight"
-              style={{ backgroundColor: colorBgHex[primaryColor] || "#28a745" }}
-            >
-              {winningNumber}
-            </span>
-            <span
-              className="px-3 py-1 rounded-xl text-white font-bold text-[13px] leading-tight"
-              style={{ backgroundColor: colorBgHex[primaryColor] || "#28a745" }}
-            >
-              {isBig ? "Big" : "Small"}
-            </span>
+            </div>
           </div>
         </div>
 
@@ -643,79 +640,177 @@ export function WingoGame({ game }: { game: GameRow }) {
       </div>
 
       {/* Countdown Stage */}
-      <Stage className="bg-gradient-night p-4">
+      <Stage className="relative overflow-hidden rounded-2xl p-4 bg-gradient-to-br from-card via-card/95 to-secondary/30 border border-border/50 shadow-card">
         <div className="flex items-stretch justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5 text-xs text-casino-muted">
-              <span>{isTrx ? "TRX WinGo" : game.name} {label(dur)}</span>
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-bold text-emerald-400">
-                <Globe className="h-2.5 w-2.5 animate-pulse" /> Live
-              </span>
+          <div className="min-w-0 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <span className="font-bold text-foreground">{isTrx ? "TRX WinGo" : game.name} {label(dur)}</span>
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-500 border border-emerald-500/20">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" /> Live
+                </span>
+              </div>
+              <div className="mt-1 font-mono text-[11px] text-muted-foreground">
+                Period: <span className="font-bold text-foreground">{activePeriodCode}</span>
+              </div>
             </div>
-            <div className="mt-2 flex gap-1">
-              {(accumulatedHist.length ? accumulatedHist : feedItems ?? []).slice(0, 5).map((h) => (
-                <Ball key={h.period} n={h.number} size="sm" />
-              ))}
+
+            {/* Recent 5 Winning Lottery Balls Shelf */}
+            <div className="mt-2.5">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80 mb-1">
+                Recent Results
+              </div>
+              <div className="flex items-center gap-1.5 p-1.5 rounded-xl bg-secondary/50 border border-border/40 w-fit">
+                {(accumulatedHist.length ? accumulatedHist : feedItems ?? []).slice(0, 5).map((h) => (
+                  <Ball key={h.period} n={h.number} size="sm" />
+                ))}
+              </div>
             </div>
           </div>
-          <div className="text-right">
-            <div className="text-xs text-casino-muted">{t("game.time_left")}</div>
-            <div className="mt-1 flex justify-end gap-1 font-display text-2xl font-extrabold tabular-nums">
+
+          <div className="text-right flex flex-col items-end justify-between">
+            <div className="text-xs font-semibold text-muted-foreground">{t("game.time_left")}</div>
+            {/* LED Digital Flip Clock style */}
+            <div className="mt-1 flex items-center gap-1 font-mono text-2xl font-black tabular-nums">
               {[mm[0], mm[1], ":", ss[0], ss[1]].map((c, i) =>
                 c === ":" ? (
-                  <span key={i} className="px-0.5">:</span>
+                  <span key={i} className="text-primary font-bold px-0.5 animate-pulse">:</span>
                 ) : (
-                  <span key={i} className={cn("grid h-9 w-7 place-items-center rounded-md bg-card text-primary-deep", closed && "text-destructive")}>
+                  <span
+                    key={i}
+                    className={cn(
+                      "grid h-10 w-7 place-items-center rounded-lg bg-secondary font-mono text-xl font-black shadow-inner border border-border/50",
+                      closed ? "bg-destructive/15 text-destructive border-destructive/30 animate-pulse" : "text-foreground"
+                    )}
+                  >
                     {c}
                   </span>
                 )
               )}
             </div>
-            <div className="mt-1.5 font-mono text-[11px] text-casino-muted">{activePeriodCode}</div>
+            {closed ? (
+              <span className="inline-block mt-1 text-[10px] font-extrabold uppercase tracking-wide text-destructive animate-pulse">
+                Draw Locked
+              </span>
+            ) : (
+              <span className="inline-block mt-1 text-[10px] font-medium text-emerald-500">
+                Betting Open
+              </span>
+            )}
           </div>
         </div>
       </Stage>
 
       {/* Bet Controls */}
-      <div className="relative space-y-3 rounded-2xl bg-card p-3 shadow-card">
+      <div className="relative space-y-3 rounded-2xl bg-card p-3.5 shadow-card border border-border/40">
         {closed && (
-          <div className="absolute inset-0 z-10 grid place-items-center rounded-2xl bg-night/75 backdrop-blur-[1px]">
-            <div className="flex gap-2">
-              {String(remain)
-                .padStart(2, "0")
-                .split("")
-                .map((c, i) => (
-                  <span key={i} className="grid h-24 w-16 place-items-center rounded-xl bg-card font-display text-6xl font-black text-primary-deep">
-                    {c}
-                  </span>
-                ))}
+          <div className="absolute inset-0 z-10 grid place-items-center rounded-2xl bg-night/80 backdrop-blur-[2px]">
+            <div className="flex flex-col items-center gap-2">
+              <div className="text-xs font-bold uppercase tracking-widest text-destructive animate-pulse">
+                Draw in progress
+              </div>
+              <div className="flex gap-2">
+                {String(remain)
+                  .padStart(2, "0")
+                  .split("")
+                  .map((c, i) => (
+                    <span
+                      key={i}
+                      className="grid h-20 w-14 place-items-center rounded-2xl bg-card font-display text-5xl font-black text-destructive shadow-2xl border border-destructive/20 animate-bounce"
+                    >
+                      {c}
+                    </span>
+                  ))}
+              </div>
             </div>
           </div>
         )}
-        <div className="grid grid-cols-3 gap-2">
-          {(["green", "violet", "red"] as const).map((c) => (
-            <button
-              key={c}
-              onClick={() => open({ kind: "color", value: c })}
-              className={cn("rounded-tl-xl rounded-br-xl py-3 text-sm font-bold text-primary-foreground shadow-card transition active:scale-95", colorBg[c])}
-            >
-              {t(`game.${c}`)}
-            </button>
-          ))}
-        </div>
-        <div className="grid grid-cols-5 gap-2.5 rounded-xl bg-secondary/60 p-2.5">
-          {Array.from({ length: 10 }, (_, n) => (
-            <button key={n} onClick={() => open({ kind: "number", value: String(n) })} className="transition active:scale-90">
-              <Ball n={n} size="lg" />
-            </button>
-          ))}
-        </div>
-        <div className="flex overflow-hidden rounded-full shadow-card">
-          <button onClick={() => open({ kind: "size", value: "big" })} className="flex-1 bg-gold py-3 font-bold text-night">
-            {t("game.big")} <span className="text-xs opacity-75">×1.96</span>
+
+        {/* 3 Color Buttons */}
+        <div className="grid grid-cols-3 gap-2.5">
+          <button
+            onClick={() => open({ kind: "color", value: "green" })}
+            className="group relative flex flex-col items-center justify-center rounded-xl py-3 px-2 text-white transition-all active:scale-95 hover:brightness-105"
+            style={{
+              background: "linear-gradient(135deg, #22c55e 0%, #15803d 100%)",
+              boxShadow: "0 4px 12px rgba(34, 197, 94, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.4)",
+            }}
+          >
+            <span className="text-sm font-black tracking-wide uppercase drop-shadow">
+              {t("game.green")}
+            </span>
+            <span className="text-[11px] font-bold text-white/90">×1.96</span>
           </button>
-          <button onClick={() => open({ kind: "size", value: "small" })} className="flex-1 bg-primary py-3 font-bold text-primary-foreground">
-            {t("game.small")} <span className="text-xs opacity-75">×1.96</span>
+
+          <button
+            onClick={() => open({ kind: "color", value: "violet" })}
+            className="group relative flex flex-col items-center justify-center rounded-xl py-3 px-2 text-white transition-all active:scale-95 hover:brightness-105"
+            style={{
+              background: "linear-gradient(135deg, #a855f7 0%, #7e22ce 100%)",
+              boxShadow: "0 4px 12px rgba(168, 85, 247, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.4)",
+            }}
+          >
+            <span className="text-sm font-black tracking-wide uppercase drop-shadow">
+              {t("game.violet")}
+            </span>
+            <span className="text-[11px] font-bold text-white/90">×4.41</span>
+          </button>
+
+          <button
+            onClick={() => open({ kind: "color", value: "red" })}
+            className="group relative flex flex-col items-center justify-center rounded-xl py-3 px-2 text-white transition-all active:scale-95 hover:brightness-105"
+            style={{
+              background: "linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)",
+              boxShadow: "0 4px 12px rgba(239, 68, 68, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.4)",
+            }}
+          >
+            <span className="text-sm font-black tracking-wide uppercase drop-shadow">
+              {t("game.red")}
+            </span>
+            <span className="text-[11px] font-bold text-white/90">×1.96</span>
+          </button>
+        </div>
+
+        {/* 10 Number Balls Grid (5 columns x 2 rows) */}
+        <div className="grid grid-cols-5 gap-2 rounded-2xl bg-secondary/40 p-2.5 border border-border/40">
+          {Array.from({ length: 10 }, (_, n) => (
+            <button
+              key={n}
+              onClick={() => open({ kind: "number", value: String(n) })}
+              className="group flex flex-col items-center gap-1 rounded-xl p-1 transition-all hover:scale-105 active:scale-95 focus-visible:outline-none"
+            >
+              <Ball n={n} size="lg" />
+              <span className="text-[10px] font-bold text-muted-foreground group-hover:text-foreground transition-colors font-mono">
+                ×8.82
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {/* Big / Small Buttons */}
+        <div className="grid grid-cols-2 gap-2.5">
+          <button
+            onClick={() => open({ kind: "size", value: "big" })}
+            className="relative flex items-center justify-between rounded-xl py-3 px-4 text-white transition-all active:scale-95 hover:brightness-105"
+            style={{
+              background: "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
+              boxShadow: "0 4px 12px rgba(245, 158, 11, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.4)",
+            }}
+          >
+            <span className="text-base font-black tracking-wider uppercase drop-shadow">{t("game.big")}</span>
+            <span className="rounded-full bg-black/25 px-2.5 py-0.5 text-xs font-bold text-white/95">×1.96</span>
+          </button>
+
+          <button
+            onClick={() => open({ kind: "size", value: "small" })}
+            className="relative flex items-center justify-between rounded-xl py-3 px-4 text-white transition-all active:scale-95 hover:brightness-105"
+            style={{
+              background: "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
+              boxShadow: "0 4px 12px rgba(59, 130, 246, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.4)",
+            }}
+          >
+            <span className="text-base font-black tracking-wider uppercase drop-shadow">{t("game.small")}</span>
+            <span className="rounded-full bg-black/25 px-2.5 py-0.5 text-xs font-bold text-white/95">×1.96</span>
           </button>
         </div>
       </div>
@@ -1155,19 +1250,75 @@ function ResultChips({ n }: { n: number }) {
   );
 }
 
-export function Ball({ n, size = "lg" }: { n: number; size?: "xs" | "sm" | "lg" }) {
+export function Ball({
+  n,
+  size = "lg",
+  className,
+}: {
+  n: number;
+  size?: "xs" | "sm" | "md" | "lg";
+  className?: string;
+}) {
   const c = numColors(n);
-  const bg = c.length > 1 ? `linear-gradient(135deg, var(--game-${c[0]}) 50%, var(--game-${c[1]}) 50%)` : `var(--game-${c[0]})`;
+  const isSplit = c.length > 1;
+
+  // Authentic WinGo colors
+  const redColor = "#fe3838";
+  const greenColor = "#18b653";
+  const violetColor = "#9b38fe";
+
+  const c0 = c[0] === "red" ? redColor : c[0] === "green" ? greenColor : violetColor;
+  const c1 = isSplit ? (c[1] === "violet" ? violetColor : greenColor) : c0;
+
+  const baseBg = isSplit
+    ? `linear-gradient(135deg, ${c0} 50%, ${c1} 50%)`
+    : `radial-gradient(circle at 35% 35%, ${c[0] === "red" ? "#ff6b6b" : c[0] === "green" ? "#34d399" : "#c084fc"} 0%, ${c0} 55%, ${c[0] === "red" ? "#c81e1e" : c[0] === "green" ? "#0f7634" : "#721acb"} 100%)`;
+
   return (
     <span
       className={cn(
-        "relative grid place-items-center rounded-full font-display font-extrabold text-primary-foreground shadow-card",
-        size === "xs" ? "h-5 w-5 text-[10px]" : size === "sm" ? "h-7 w-7 text-xs" : "mx-auto aspect-square w-full max-w-14 text-xl"
+        "relative inline-grid place-items-center select-none rounded-full font-display font-black text-white shrink-0 overflow-hidden",
+        size === "xs" && "h-5 w-5 text-[10px]",
+        size === "sm" && "h-7 w-7 text-xs",
+        size === "md" && "h-9 w-9 text-sm",
+        size === "lg" && "mx-auto aspect-square w-full max-w-[50px] text-xl ring-1 ring-white/30",
+        className
       )}
-      style={{ background: bg }}
+      style={{
+        background: baseBg,
+        boxShadow:
+          size === "lg"
+            ? "0 4px 10px rgba(0, 0, 0, 0.35), inset 0 -3px 5px rgba(0, 0, 0, 0.4), inset 0 2px 4px rgba(255, 255, 255, 0.6)"
+            : size === "md"
+            ? "0 3px 6px rgba(0, 0, 0, 0.3), inset 0 -2px 3px rgba(0, 0, 0, 0.35), inset 0 1.5px 2px rgba(255, 255, 255, 0.55)"
+            : "0 2px 4px rgba(0, 0, 0, 0.25), inset 0 -1.5px 2.5px rgba(0, 0, 0, 0.35), inset 0 1.5px 2px rgba(255, 255, 255, 0.5)",
+      }}
     >
-      {size === "lg" && <span className="absolute inset-1.5 rounded-full border-2 border-primary-foreground/70" />}
-      <span className="relative">{n}</span>
+      {/* 3D Specular highlight / gloss */}
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 rounded-full"
+        style={{
+          background:
+            "radial-gradient(circle at 32% 24%, rgba(255, 255, 255, 0.8) 0%, rgba(255, 255, 255, 0.25) 28%, transparent 60%)",
+        }}
+      />
+      {/* Inner white lottery ring on large & medium balls */}
+      {(size === "lg" || size === "md") && (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-1.5 rounded-full border border-white/40"
+        />
+      )}
+      {/* Centered number with depth shadow */}
+      <span
+        className="relative z-10 leading-none drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]"
+        style={{
+          textShadow: "0 1px 2px rgba(0, 0, 0, 0.6)",
+        }}
+      >
+        {n}
+      </span>
     </span>
   );
 }
