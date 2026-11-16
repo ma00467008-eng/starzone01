@@ -192,7 +192,7 @@ export function DragonTigerGame({ game }: { game: GameRow }) {
       </div>
     );
   };
-  const opts = [["dragon", "1.95×", "bg-game-red"], ["tie", "9×", "bg-game-green"], ["tiger", "1.95×", "bg-primary"]] as const;
+  const opts = [["dragon", "1.96×", "bg-game-red"], ["tie", "9×", "bg-game-green"], ["tiger", "1.95×", "bg-primary"]] as const;
   return (
     <div className="space-y-3">
       <Stage className="bg-gradient-night p-4">
