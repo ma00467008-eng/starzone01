@@ -166,6 +166,38 @@ function AddCoins() {
             ) : null;
           })()}
 
+          {/* Wagering Requirement Progress */}
+          {mode === "deduct" && profile && (profile.wager_required ?? 0) > 0 && (() => {
+            const req = profile.wager_required ?? 0;
+            const done = profile.wager_done ?? 0;
+            const isDone = done >= req;
+            return (
+              <Card className="space-y-2.5 border-amber-500/20 bg-amber-500/5">
+                <div className="flex items-center justify-between text-xs font-semibold">
+                  <span className="text-foreground">Betting Turnover Requirement</span>
+                  <span className={cn(isDone ? "text-emerald-500" : "text-amber-500")}>
+                    {fmt(done)} / {fmt(req)} PKR
+                  </span>
+                </div>
+                <div className="h-2 w-full overflow-hidden rounded-full bg-secondary">
+                  <div
+                    className={cn("h-full transition-all duration-300", isDone ? "bg-emerald-500" : "bg-amber-500")}
+                    style={{ width: `${Math.min(100, (done / Math.max(1, req)) * 100)}%` }}
+                  />
+                </div>
+                {!isDone ? (
+                  <p className="text-[11px] text-amber-500">
+                    You must wager {fmt(req - done)} PKR more before requesting a withdrawal.
+                  </p>
+                ) : (
+                  <p className="text-[11px] text-emerald-500">
+                    ✓ Wagering requirement completed! You are eligible to withdraw.
+                  </p>
+                )}
+              </Card>
+            );
+          })()}
+      
           {/* Account Binding for Withdrawals */}
           {mode === "deduct" && (
             <Card className="space-y-3">
