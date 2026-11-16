@@ -106,18 +106,40 @@ export function CrashGame({ game }: { game: GameRow }) {
   const flightStartRef = useRef<number>(0);
   const spectatorCrashPoint = useRef<number>(2.2);
 
+  // Stale-closure protection refs: always read the latest player input
+  const myBetPlacedRef = useRef(false);
+  const queuedBetRef = useRef(false);
+  const stakeRef = useRef(stake);
+  const autoRef = useRef(auto);
+  const cashedOutAtRef = useRef<number | null>(null);
+  const busyRef = useRef(false);
+  const inFlightPollRef = useRef(false);
+  const multRef = useRef(1.0);
+
+  useEffect(() => { myBetPlacedRef.current = myBetPlaced; }, [myBetPlaced]);
+  useEffect(() => { queuedBetRef.current = queuedBet; }, [queuedBet]);
+  useEffect(() => { stakeRef.current = stake; }, [stake]);
+  useEffect(() => { autoRef.current = auto; }, [auto]);
+  useEffect(() => { cashedOutAtRef.current = cashedOutAt; }, [cashedOutAt]);
+  useEffect(() => { busyRef.current = busy; }, [busy]);
+  useEffect(() => { multRef.current = mult; }, [mult]);
+
   // 1. Countdown timer & Round auto-loop
   useEffect(() => {
     let timer: NodeJS.Timeout;
     if (phase === "countdown") {
       setCountdown(10);
       setMult(1.0);
+      multRef.current = 1.0;
       setCashedOutAt(null);
+      cashedOutAtRef.current = null;
 
-      // If user had queued a bet during flight, apply it now
-      if (queuedBet) {
+      // If user had queued a bet during flight, activate it for countdown
+      if (queuedBetRef.current) {
         setMyBetPlaced(true);
+        myBetPlacedRef.current = true;
         setQueuedBet(false);
+        queuedBetRef.current = false;
       }
 
       const step = 100;
@@ -132,7 +154,7 @@ export function CrashGame({ game }: { game: GameRow }) {
       }, step);
     }
     return () => clearInterval(timer);
-  }, [phase, queuedBet]);
+  }, [phase]);
 
   // 2. Takeoff
   const startTakeoff = async () => {
@@ -140,25 +162,67 @@ export function CrashGame({ game }: { game: GameRow }) {
     flightStartRef.current = Date.now();
     beep("takeoff");
 
-    // If player placed a bet for this round, call Supabase crash_start
-    if (myBetPlaced) {
+    // If player placed a bet for this round, call Supabase crash_start using refs
+    if (myBetPlacedRef.current) {
       setBusy(true);
+      busyRef.current = true;
       try {
+        let resData: any = null;
+        const currentStake = stakeRef.current;
+        const currentAuto = autoRef.current ? Number(autoRef.current) : null;
+
         const { data, error } = await (supabase.rpc as any)("crash_start", {
-          _stake: stake,
-          _auto_cashout: auto ? Number(auto) : null,
+          _stake: currentStake,
+          _auto_cashout: currentAuto,
         });
-        if (error) throw error;
-        sidRef.current = (data as any)?.session;
-        after((data as any)?.balance);
+
+        if (error) {
+          const msg = errMsg(error);
+          // If previous session is stuck, attempt auto-reset/clear and retry once
+          if (msg.toLowerCase().includes("finish your current") || msg.toLowerCase().includes("active")) {
+            try {
+              const { data: stuck } = await supabase
+                .from("game_sessions")
+                .select("id")
+                .eq("game", "aviator")
+                .eq("active", true)
+                .order("created_at", { ascending: false })
+                .limit(1)
+                .maybeSingle();
+
+              if (stuck?.id) {
+                await (supabase.rpc as any)("crash_check", { _session: stuck.id, _cashout: false });
+              }
+            } catch { /* ignore */ }
+
+            const retry = await (supabase.rpc as any)("crash_start", {
+              _stake: currentStake,
+              _auto_cashout: currentAuto,
+            });
+            if (retry.error) throw retry.error;
+            resData = retry.data;
+          } else {
+            throw error;
+          }
+        } else {
+          resData = data;
+        }
+
+        sidRef.current = resData?.session ?? null;
+        if (resData?.balance !== undefined) {
+          after(resData.balance);
+        }
       } catch (e) {
         toast.error(errMsg(e));
         setMyBetPlaced(false);
+        myBetPlacedRef.current = false;
         sidRef.current = null;
       } finally {
         setBusy(false);
+        busyRef.current = false;
       }
     } else {
+      sidRef.current = null;
       // Spectator simulated crash target
       spectatorCrashPoint.current = Number(
         (Math.random() < 0.35 ? 1 + Math.random() * 0.7 : Math.random() < 0.7 ? 1.7 + Math.random() * 2.5 : 4 + Math.random() * 8).toFixed(2)
@@ -170,15 +234,15 @@ export function CrashGame({ game }: { game: GameRow }) {
   useEffect(() => {
     if (phase !== "flying") return;
 
-    // Fast visual multiplier increment
+    // Fast visual multiplier increment matching backend e^(0.1 * t)
     const anim = setInterval(() => {
       const elapsedSec = (Date.now() - flightStartRef.current) / 1000;
-      // Exponential curve: e^(0.09 * t)
-      const current = Math.floor(Math.exp(0.095 * elapsedSec) * 100) / 100;
+      const current = Math.floor(Math.exp(0.1 * elapsedSec) * 100) / 100;
       setMult(current);
+      multRef.current = current;
 
       // Auto cashout client check if set
-      if (myBetPlaced && !cashedOutAt && auto && current >= Number(auto)) {
+      if (myBetPlacedRef.current && !cashedOutAtRef.current && autoRef.current && current >= Number(autoRef.current)) {
         cashout(true);
       }
 
@@ -199,29 +263,41 @@ export function CrashGame({ game }: { game: GameRow }) {
       clearInterval(anim);
       clearInterval(poll);
     };
-  }, [phase, myBetPlaced, cashedOutAt, auto]);
+  }, [phase]);
 
   const checkServer = async (manualCashout: boolean) => {
     if (!sidRef.current) return;
+    if (!manualCashout && inFlightPollRef.current) return;
+    if (!manualCashout) inFlightPollRef.current = true;
+
     try {
       const { data, error } = await (supabase.rpc as any)("crash_check", {
         _session: sidRef.current,
         _cashout: manualCashout,
       });
+
       if (error) {
+        const msg = errMsg(error);
         if (manualCashout) {
-          toast.error(errMsg(error));
+          toast.error(msg);
+        }
+        if (msg.toLowerCase().includes("no active flight")) {
+          sidRef.current = null;
+          if (!cashedOutAtRef.current) {
+            handleCrash(multRef.current);
+          }
         }
         return;
       }
+
       const res = data as any;
       if (!res) return;
 
       // 1. User cashed out successfully (manual or auto-triggered)
-      // Supabase _crash_settle returns { crashed: true, crash: c, cashout: m, payout: payout, balance: b }
       if (res.cashout != null) {
         const win = Number(res.cashout);
         setCashedOutAt(win);
+        cashedOutAtRef.current = win;
         sidRef.current = null;
         beep("cashout");
         toast.success(`Cashed out at ${win.toFixed(2)}×! (+${fmt(Number(res.payout))})`);
@@ -232,9 +308,9 @@ export function CrashGame({ game }: { game: GameRow }) {
       // 2. Flight crashed before user cashed out
       if (res.crashed) {
         sidRef.current = null;
-        const crashMult = Number(res.crash) || mult;
+        const crashMult = Number(res.crash) || multRef.current;
         handleCrash(crashMult);
-        if (!cashedOutAt) {
+        if (!cashedOutAtRef.current) {
           beep("explode");
         }
         return;
@@ -243,56 +319,74 @@ export function CrashGame({ game }: { game: GameRow }) {
       // 3. Normal flight multiplier update
       if (res.multiplier && !manualCashout) {
         const serverMult = Number(res.multiplier);
-        if (serverMult > mult) {
+        if (serverMult > multRef.current) {
           setMult(serverMult);
+          multRef.current = serverMult;
         }
       }
     } catch (e: any) {
       if (manualCashout) {
         toast.error(errMsg(e));
       }
+    } finally {
+      if (!manualCashout) inFlightPollRef.current = false;
     }
   };
 
   const handleCrash = (finalMult: number) => {
     setPhase("crashed");
     setMult(finalMult);
+    multRef.current = finalMult;
     setPast((p) => [finalMult, ...p.slice(0, 14)]);
     sidRef.current = null;
 
-    if (myBetPlaced && !cashedOutAt) {
+    if (myBetPlacedRef.current && !cashedOutAtRef.current) {
       beep("explode");
       toast.error(`Flew away at ${finalMult.toFixed(2)}×`);
     }
 
     setMyBetPlaced(false);
+    myBetPlacedRef.current = false;
 
     // Wait 2.5s showing crash, then restart 10s countdown
     setTimeout(() => {
       setPhase("countdown");
       setCashedOutAt(null);
+      cashedOutAtRef.current = null;
     }, 2500);
   };
 
   const cashout = async (autoTrigger = false) => {
-    if (!sidRef.current || cashedOutAt || busy) return;
+    if (cashedOutAtRef.current || busyRef.current) return;
+    if (!sidRef.current) {
+      if (!autoTrigger) {
+        toast.info("No active bet placed for this flight");
+      }
+      return;
+    }
     setBusy(true);
+    busyRef.current = true;
     try {
       await checkServer(true);
     } catch (e) {
       if (!autoTrigger) toast.error(errMsg(e));
     } finally {
       setBusy(false);
+      busyRef.current = false;
     }
   };
 
   const toggleBet = () => {
     if (phase === "countdown") {
-      setMyBetPlaced(!myBetPlaced);
+      const nextBet = !myBetPlaced;
+      setMyBetPlaced(nextBet);
+      myBetPlacedRef.current = nextBet;
       beep("bet");
     } else {
       // Flight in progress: queue for next round
-      setQueuedBet(!queuedBet);
+      const nextQueue = !queuedBet;
+      setQueuedBet(nextQueue);
+      queuedBetRef.current = nextQueue;
       beep("chip");
     }
   };
@@ -331,28 +425,46 @@ export function CrashGame({ game }: { game: GameRow }) {
       </div>
 
       {/* Main Aviator Radar Runway Screen */}
-      <div className="relative h-64 sm:h-72 w-full overflow-hidden rounded-2xl border border-red-500/20 bg-gradient-to-b from-[#140608] via-[#0c0405] to-[#050202] shadow-[inset_0_0_80px_rgba(220,38,38,0.15)] flex flex-col justify-between p-4">
-        {/* Radar grid lines */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#ef44440a_1px,transparent_1px),linear-gradient(to_bottom,#ef44440a_1px,transparent_1px)] bg-[size:28px_28px]" />
+      <div className="relative h-64 sm:h-72 md:h-80 w-full overflow-hidden rounded-2xl border border-red-500/30 bg-gradient-to-b from-[#150a0a] via-[#100808] to-[#090505] p-4 flex flex-col justify-between shadow-2xl">
+        {/* Animated Radar Background Grid */}
+        <div className="absolute inset-0 opacity-20 pointer-events-none">
+          <div
+            className="h-full w-full"
+            style={{
+              backgroundImage:
+                "linear-gradient(to right, rgba(239,68,68,0.2) 1px, transparent 1px), linear-gradient(to bottom, rgba(239,68,68,0.2) 1px, transparent 1px)",
+              backgroundSize: "28px 28px",
+            }}
+          />
+        </div>
 
-        {/* Diagonal trajectory line during flight */}
+        {/* Radar Sweeper Circle Overlay */}
+        <div className="absolute -bottom-24 -left-24 h-96 w-96 rounded-full border border-red-500/20 pointer-events-none" />
+        <div className="absolute -bottom-12 -left-12 h-64 w-64 rounded-full border border-red-500/15 pointer-events-none" />
+
+        {/* Flight Trajectory Canvas Path */}
         {phase === "flying" && (
           <svg className="absolute inset-0 h-full w-full pointer-events-none">
+            <defs>
+              <linearGradient id="flightGradient" x1="0%" y1="100%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="#EF4444" stopOpacity="0.2" />
+                <stop offset="100%" stopColor="#EF4444" stopOpacity="1" />
+              </linearGradient>
+            </defs>
             <path
-              d={`M 15 240 Q ${80 + trajectoryProgress * 120} ${220 - trajectoryProgress * 80}, ${
-                60 + trajectoryProgress * 220
-              } ${220 - trajectoryProgress * 150}`}
+              d={`M 30,${240} Q ${30 + trajectoryProgress * 220},${240 - trajectoryProgress * 10} ${
+                30 + trajectoryProgress * 480
+              },${240 - trajectoryProgress * 180}`}
               fill="none"
-              stroke="#ef4444"
-              strokeWidth="3.5"
+              stroke="url(#flightGradient)"
+              strokeWidth="4"
               strokeLinecap="round"
-              className="drop-shadow-[0_0_8px_rgba(239,68,68,0.8)]"
             />
-            {/* Red Area Fill under trajectory */}
+            {/* Area fill under curve */}
             <path
-              d={`M 15 240 Q ${80 + trajectoryProgress * 120} ${220 - trajectoryProgress * 80}, ${
-                60 + trajectoryProgress * 220
-              } ${220 - trajectoryProgress * 150} L ${60 + trajectoryProgress * 220} 240 Z`}
+              d={`M 30,${240} Q ${30 + trajectoryProgress * 220},${240 - trajectoryProgress * 10} ${
+                30 + trajectoryProgress * 480
+              },${240 - trajectoryProgress * 180} L ${30 + trajectoryProgress * 480},${240} Z`}
               fill="rgba(239, 68, 68, 0.08)"
             />
           </svg>
@@ -524,7 +636,6 @@ export function CrashGame({ game }: { game: GameRow }) {
     </div>
   );
 }
-
 /* =========================================================================
    2. Mines Game (Faithfully preserved)
    ========================================================================= */
@@ -709,7 +820,7 @@ export function MinesGame({ game }: { game: GameRow }) {
 }
 
 /* =========================================================================
-   3. Chicken Road 2.0
+   3. Chicken Road 2.0 (Realistic Forward Highway Scrolling & Car Crushing)
    ========================================================================= */
 
 const CHICKEN_DIFFS = [
@@ -719,7 +830,7 @@ const CHICKEN_DIFFS = [
   { id: "hardcore", label: "Daredevil", multText: "2.80x - 15x" },
 ] as const;
 
-// Big, High-Definition Realistic White Chicken SVG with Huge Expressive Eyes (Chicken Road Style)
+// Realistic White Chicken SVG with Cartoon Crushed State, Flying Feathers & Dizzy Stars
 function RealisticWhiteChicken({
   crushed,
   running,
@@ -731,17 +842,65 @@ function RealisticWhiteChicken({
 }) {
   if (crushed) {
     return (
-      <div className="relative flex flex-col items-center justify-center animate-shake z-30">
-        {/* Splat mark with tire tread marks */}
-        <div className="relative flex items-center justify-center">
-          <div className="absolute -left-6 top-1/2 -translate-y-1/2 h-2.5 w-10 bg-black/80 blur-[1px] rotate-12" />
-          <div className="absolute -right-6 top-1/2 -translate-y-1/2 h-2.5 w-10 bg-black/80 blur-[1px] -rotate-12" />
-          <div className="h-16 w-20 sm:h-20 sm:w-24 rounded-full bg-red-600/85 blur-[2px] animate-pulse" />
-          <span className="absolute text-4xl sm:text-5xl animate-bounce">💥</span>
+      <div className="relative flex flex-col items-center justify-center animate-shake z-30 select-none">
+        {/* Flying cartoon feathers bursting outwards */}
+        <div className="absolute inset-0 pointer-events-none">
+          <span className="absolute -top-10 -left-6 text-xl rotate-45 animate-bounce">🪶</span>
+          <span className="absolute -top-8 right-6 text-lg -rotate-45 animate-pulse">🪶</span>
+          <span className="absolute -bottom-6 -left-8 text-base rotate-12">🪶</span>
+          <span className="absolute -bottom-8 right-8 text-xl -rotate-12 animate-bounce">🪶</span>
+          <span className="absolute top-2 -right-10 text-lg rotate-90">🪶</span>
         </div>
-        <span className="mt-1 rounded-full bg-black/90 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-red-400 border border-red-500/40 shadow-xl">
-          CRUSHED! 🚗💨
-        </span>
+
+        {/* Orbiting dizzy cartoon stars */}
+        <div className="absolute -top-12 flex items-center gap-1 animate-pulse">
+          <span className="text-xl animate-spin">💫</span>
+          <span className="text-xl text-yellow-400">⭐</span>
+          <span className="text-xl animate-spin">💫</span>
+        </div>
+
+        {/* Dark rubber tire skid mark across the pavement */}
+        <div className="relative flex items-center justify-center">
+          <div className="absolute -left-12 h-4 w-28 bg-black/90 rounded-full blur-[1px] -rotate-6" />
+          <div className="absolute -right-12 h-4 w-28 bg-black/90 rounded-full blur-[1px] -rotate-6" />
+
+          {/* Squashed Flat Pancake Chicken SVG */}
+          <svg viewBox="0 0 120 60" className="h-16 w-32 drop-shadow-[0_4px_12px_rgba(0,0,0,0.8)] relative z-10" fill="none">
+            {/* Flat splat body puddle */}
+            <ellipse cx="60" cy="35" rx="52" ry="18" fill="#F8FAFC" stroke="#94A3B8" strokeWidth="2.5" />
+            <ellipse cx="60" cy="35" rx="46" ry="14" fill="#FFFFFF" />
+
+            {/* Splayed out flat wings */}
+            <path d="M12 36 C 8 26, 26 22, 34 30 Z" fill="#E2E8F0" stroke="#94A3B8" strokeWidth="2" />
+            <path d="M108 36 C 112 26, 94 22, 86 30 Z" fill="#E2E8F0" stroke="#94A3B8" strokeWidth="2" />
+
+            {/* Squished Rooster Comb & Wattle */}
+            <path d="M50 18 C 45 10, 55 8, 58 14 C 62 8, 70 10, 68 18 Z" fill="#DC2626" stroke="#991B1B" strokeWidth="1.5" />
+            <ellipse cx="78" cy="36" rx="4" ry="7" fill="#DC2626" />
+
+            {/* Squished Beak poking out flat */}
+            <polygon points="76,30 92,34 76,38" fill="#F59E0B" stroke="#D97706" strokeWidth="1.5" />
+
+            {/* Cartoon X_X Dizzy Eyes */}
+            <circle cx="50" cy="32" r="7" fill="#FFFFFF" stroke="#0F172A" strokeWidth="1.5" />
+            <path d="M46 28 L 54 36 M54 28 L 46 36" stroke="#0F172A" strokeWidth="2.2" strokeLinecap="round" />
+            <circle cx="66" cy="32" r="7" fill="#FFFFFF" stroke="#0F172A" strokeWidth="1.5" />
+            <path d="M62 28 L 70 36 M70 28 L 62 36" stroke="#0F172A" strokeWidth="2.2" strokeLinecap="round" />
+
+            {/* Flat feet sticking out */}
+            <path d="M30 45 L 20 54 M30 45 L 26 56 M30 45 L 34 55" stroke="#F59E0B" strokeWidth="3" strokeLinecap="round" />
+            <path d="M90 45 L 100 54 M90 45 L 94 56 M90 45 L 86 55" stroke="#F59E0B" strokeWidth="3" strokeLinecap="round" />
+          </svg>
+        </div>
+
+        {/* Comic SPLAT impact badge */}
+        <div className="mt-2 flex items-center gap-1.5 rounded-full bg-gradient-to-r from-red-600 via-rose-600 to-amber-600 px-3 py-1 border-2 border-white/60 shadow-2xl animate-bounce">
+          <span className="text-sm">💥</span>
+          <span className="text-[11px] font-black uppercase tracking-widest text-white drop-shadow">
+            SPLAT! CRUSHED!
+          </span>
+          <span className="text-sm">🚗💨</span>
+        </div>
       </div>
     );
   }
@@ -751,12 +910,12 @@ function RealisticWhiteChicken({
       className={cn(
         "relative flex flex-col items-center justify-center transition-all duration-300 z-20",
         running ? "rotate-[14deg] translate-y-[-2px]" : "rotate-0",
-        hopping ? "-translate-y-3 scale-105" : "translate-y-0 scale-100"
+        hopping ? "-translate-y-4 scale-110" : "translate-y-0 scale-100"
       )}
     >
       {/* Cartoon sprint dust cloud behind chicken feet when running */}
       {running && (
-        <div className="absolute -left-4 bottom-1 pointer-events-none animate-pulse">
+        <div className="absolute -left-5 bottom-1 pointer-events-none animate-pulse">
           <span className="text-base select-none">💨</span>
         </div>
       )}
@@ -890,7 +1049,7 @@ function RealisticWhiteChicken({
           strokeWidth="1.5"
         />
 
-        {/* Enhanced Big Cartoon Chicken Road Eye */}
+        {/* Big Cartoon Chicken Eye */}
         <circle cx="58" cy="27" r="9.5" fill="#FFFFFF" stroke="#0F172A" strokeWidth="2.4" />
         <circle cx="60.5" cy="27" r="5.5" fill="#0F172A" />
         <circle cx="62.5" cy="24.5" r="2.2" fill="#FFFFFF" />
@@ -911,16 +1070,23 @@ function HighwayCar({
   color = "#DC2626",
   accent = "#EF4444",
   stopped = false,
+  crushing = false,
 }: {
   color?: string;
   accent?: string;
   stopped?: boolean;
+  crushing?: boolean;
 }) {
   return (
-    <div className="relative flex flex-col items-center drop-shadow-[0_10px_20px_rgba(0,0,0,0.85)] pointer-events-none">
-      {/* Front Headlight Light Beams shining on the asphalt (dimmed/off when stopped) */}
+    <div
+      className={cn(
+        "relative flex flex-col items-center drop-shadow-[0_10px_20px_rgba(0,0,0,0.85)] pointer-events-none transition-all",
+        crushing && "animate-pulse scale-105"
+      )}
+    >
+      {/* Front Headlight Light Beams shining on the asphalt */}
       {!stopped && (
-        <div className="absolute -top-14 h-16 w-16 bg-gradient-to-t from-yellow-300/35 via-yellow-200/10 to-transparent blur-[6px] pointer-events-none" />
+        <div className="absolute -top-14 h-16 w-16 bg-gradient-to-t from-yellow-300/40 via-yellow-200/15 to-transparent blur-[6px] pointer-events-none" />
       )}
 
       {/* Stopped / Cleared Badge when car halts for the chicken */}
@@ -932,22 +1098,12 @@ function HighwayCar({
         </div>
       )}
 
-      <svg
-        viewBox="0 0 70 140"
-        className="h-28 w-14 sm:h-34 sm:w-16 md:h-38 md:w-18 drop-shadow-[0_8px_16px_rgba(0,0,0,0.85)]"
-        fill="none"
-      >
-        {/* 4 Wide Performance Tires */}
-        <rect x="2" y="18" width="11" height="26" rx="4" fill="#090D16" stroke="#1E293B" strokeWidth="1.5" />
-        <rect x="57" y="18" width="11" height="26" rx="4" fill="#090D16" stroke="#1E293B" strokeWidth="1.5" />
-        <rect x="2" y="94" width="11" height="28" rx="4" fill="#090D16" stroke="#1E293B" strokeWidth="1.5" />
-        <rect x="57" y="94" width="11" height="28" rx="4" fill="#090D16" stroke="#1E293B" strokeWidth="1.5" />
-
-        {/* Alloy Rim Details */}
-        <line x1="7" y1="22" x2="7" y2="40" stroke="#475569" strokeWidth="1.5" />
-        <line x1="62" y1="22" x2="62" y2="40" stroke="#475569" strokeWidth="1.5" />
-        <line x1="7" y1="98" x2="7" y2="118" stroke="#475569" strokeWidth="1.5" />
-        <line x1="62" y1="98" x2="62" y2="118" stroke="#475569" strokeWidth="1.5" />
+      <svg viewBox="0 0 70 140" className="h-28 w-14 sm:h-32 sm:w-16" fill="none">
+        {/* 4 Wide High-Grip Racing Tires with realistic treads */}
+        <rect x="2" y="18" width="10" height="24" rx="3" fill="#0F172A" stroke="#334155" strokeWidth="1.5" />
+        <rect x="58" y="18" width="10" height="24" rx="3" fill="#0F172A" stroke="#334155" strokeWidth="1.5" />
+        <rect x="2" y="96" width="10" height="26" rx="3" fill="#0F172A" stroke="#334155" strokeWidth="1.5" />
+        <rect x="58" y="96" width="10" height="26" rx="3" fill="#0F172A" stroke="#334155" strokeWidth="1.5" />
 
         {/* Main Aerodynamic Sports Chassis */}
         <path
@@ -961,11 +1117,11 @@ function HighwayCar({
         <rect x="31" y="8" width="3" height="122" fill="#FFFFFF" opacity="0.8" />
         <rect x="36" y="8" width="3" height="122" fill="#FFFFFF" opacity="0.8" />
 
-        {/* Front Hood Vents / Splitter */}
+        {/* Front Hood Vents */}
         <path d="M22 20 L 48 20" stroke="#0F172A" strokeWidth="2.5" strokeLinecap="round" />
         <path d="M26 25 L 44 25" stroke="#0F172A" strokeWidth="2" strokeLinecap="round" />
 
-        {/* Dual High-Intensity Xenon Headlights */}
+        {/* Dual Xenon Headlights */}
         <ellipse cx="18" cy="12" rx="4.5" ry="3.5" fill={stopped ? "#FEF08A88" : "#FEF08A"} stroke="#CA8A04" strokeWidth="1.5" />
         <ellipse cx="52" cy="12" rx="4.5" ry="3.5" fill={stopped ? "#FEF08A88" : "#FEF08A"} stroke="#CA8A04" strokeWidth="1.5" />
 
@@ -977,10 +1133,6 @@ function HighwayCar({
           strokeWidth="2"
         />
         <path d="M22 42 L 36 62" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" opacity="0.45" />
-
-        {/* Side Mirrors */}
-        <path d="M12 44 L 5 40 L 6 48 Z" fill="#0F172A" stroke={accent} strokeWidth="1" />
-        <path d="M58 44 L 65 40 L 64 48 Z" fill="#0F172A" stroke={accent} strokeWidth="1" />
 
         {/* Roof Section */}
         <rect x="20" y="66" width="30" height="20" rx="3" fill="#0F172A" opacity="0.95" />
@@ -996,8 +1148,6 @@ function HighwayCar({
 
         {/* Aggressive GT Wing / Rear Spoiler */}
         <rect x="8" y="118" width="54" height="6" rx="2" fill="#0F172A" stroke="#334155" strokeWidth="1.5" />
-        <rect x="6" y="116" width="3" height="10" rx="1" fill="#475569" />
-        <rect x="61" y="116" width="3" height="10" rx="1" fill="#475569" />
 
         {/* Dual Red LED Taillights - Glowing Bright Red on Brake / Stop */}
         <rect
@@ -1022,21 +1172,17 @@ function HighwayCar({
           strokeWidth="1"
           className={stopped ? "drop-shadow-[0_0_8px_#EF4444]" : ""}
         />
-
-        {/* Dual Exhaust Pipes */}
-        <circle cx="28" cy="132" r="2" fill="#475569" stroke="#94A3B8" strokeWidth="0.8" />
-        <circle cx="42" cy="132" r="2" fill="#475569" stroke="#94A3B8" strokeWidth="0.8" />
       </svg>
     </div>
   );
 }
 
-// Calculate realistic multiplier matching backend formula: round(0.97 / (1 - p)^lane, 2)
 function getChickenRoadMult(lane: number, diff: string): number {
+  if (lane <= 0) return 1.0;
   const pMap: Record<string, number> = {
     easy: 0.04,
-    medium: 0.12,
-    hard: 0.20,
+    medium: 0.08,
+    hard: 0.15,
     hardcore: 0.30,
   };
   const p = pMap[diff] ?? 0.04;
@@ -1058,13 +1204,15 @@ export function ChickenGame({ game }: { game: GameRow }) {
   // 2 = crossed into Road 2, etc. (up to 20)
   const [lane, setLane] = useState(0);
   const [crushed, setCrushed] = useState(false);
+  const [crushingCar, setCrushingCar] = useState(false);
+  const [crushLane, setCrushLane] = useState<number | null>(null);
   const [hopping, setHopping] = useState(false);
   const [running, setRunning] = useState(false);
   const [mult, setMult] = useState(1);
   const [hasStuckRound, setHasStuckRound] = useState(false);
 
-  // Traffic Animation on upcoming danger roads (slots 1 and 2)
-  const [carLaneOffset, setCarLaneOffset] = useState<number | null>(null); // 1 or 2
+  // Traffic Loop on upcoming danger roads
+  const [carOffset, setCarOffset] = useState<number | null>(null); // lane offset
   const [carY, setCarY] = useState<number>(-140);
   const [carColor, setCarColor] = useState<string>("#DC2626");
 
@@ -1077,13 +1225,14 @@ export function ChickenGame({ game }: { game: GameRow }) {
     setLane(0);
     setMult(1);
     setCrushed(false);
+    setCrushingCar(false);
+    setCrushLane(null);
     setRunning(false);
     setHopping(false);
     setHasStuckRound(false);
   }, []);
 
-  // Sync with Supabase on mount: DO NOT assume localStorage is active!
-  // If no active session in database, wipe local state completely.
+  // Sync with Supabase on mount
   useEffect(() => {
     let mounted = true;
 
@@ -1122,36 +1271,33 @@ export function ChickenGame({ game }: { game: GameRow }) {
     };
   }, [diff, clearLocalChickenState]);
 
-  // Traffic loop on the upcoming danger roads (slots 1 and 2):
-  // Slot 0 is ALWAYS safe: either START CURB (lane === 0) or Cleared Road (lane >= 1).
-  // Cars only drive down slots 1 and 2!
+  // Traffic loop on upcoming roads
   useEffect(() => {
     const CAR_COLORS = ["#DC2626", "#2563EB", "#EAB308", "#10B981", "#8B5CF6", "#EA580C"];
 
     const trafficInterval = setInterval(() => {
-      const upcomingIndices = [1, 2];
-      const targetOffset = upcomingIndices[Math.floor(Math.random() * upcomingIndices.length)] ?? 1;
       const randomColor = CAR_COLORS[Math.floor(Math.random() * CAR_COLORS.length)] ?? "#DC2626";
+      const targetLane = lane + 1; // Car speeds down the immediate danger road
 
-      setCarLaneOffset(targetOffset);
+      setCarOffset(targetLane);
       setCarColor(randomColor);
       setCarY(-140);
 
       let currentY = -140;
-      const speed = 14 + Math.random() * 16;
+      const speed = 16 + Math.random() * 14;
 
       const driveInterval = setInterval(() => {
         currentY += speed;
         setCarY(currentY);
-        if (currentY > 440) {
+        if (currentY > 460) {
           clearInterval(driveInterval);
-          setCarLaneOffset(null);
+          setCarOffset(null);
         }
-      }, 40);
-    }, 3600);
+      }, 35);
+    }, 3200);
 
     return () => clearInterval(trafficInterval);
-  }, []);
+  }, [lane]);
 
   const start = async () => {
     setBusy(true);
@@ -1165,42 +1311,41 @@ export function ChickenGame({ game }: { game: GameRow }) {
       const session = (data as any)?.session;
       setSid(session);
       setActive(true);
-      setLane(0); // Safely waiting at START CURB
-      setCrushed(false);
-      setRunning(false);
+      setLane(0);
       setMult(1);
+      setCrushed(false);
+      setCrushingCar(false);
+      setCrushLane(null);
       beep("bet");
+      toast.success("Run started! Safe at the Start Curb. Click CROSS ROAD to step forward!");
       after((data as any)?.balance);
     } catch (e: any) {
       const msg = errMsg(e);
-      if (msg.toLowerCase().includes("current round")) {
-        // Attempt automatic clearing of stuck round
+      if (msg.toLowerCase().includes("finish your current") || msg.toLowerCase().includes("active")) {
+        setHasStuckRound(true);
         try {
           await (supabase.rpc as any)("chicken_reset_stuck");
           const retry = await (supabase.rpc as any)("chicken_start", {
             _stake: stake,
             _difficulty: diff,
           });
-          if (!retry.error && retry.data?.session) {
-            setSid(retry.data.session);
+          if (!retry.error) {
+            setSid((retry.data as any)?.session);
             setActive(true);
             setLane(0);
-            setCrushed(false);
-            setRunning(false);
             setMult(1);
+            setCrushed(false);
+            setCrushingCar(false);
+            setCrushLane(null);
+            setHasStuckRound(false);
             beep("bet");
-            after(retry.data.balance);
-            toast.success("Previous stuck round cleared. Starting fresh run!");
+            toast.success("Previous run resolved! You can cross now!");
+            after((retry.data as any)?.balance);
             return;
           }
-        } catch {
-          // ignore
-        }
-        setHasStuckRound(true);
-        toast.error("Finish your current round first. Tap 'Clear Stuck Round' below.");
-      } else {
-        toast.error(msg);
+        } catch { /* ignore */ }
       }
+      toast.error(msg);
     } finally {
       setBusy(false);
     }
@@ -1219,17 +1364,26 @@ export function ChickenGame({ game }: { game: GameRow }) {
       const res = data as any;
 
       if (res?.hit) {
-        // Chicken tried to cross and got crushed!
-        setHopping(false);
-        setRunning(false);
-        setCrushed(true);
-        setActive(false);
-        clearLocalChickenState();
-        beep("explode");
-        toast.error("SPLAT! A speeding car crushed the chicken!");
-        after(res.balance);
+        // Chicken tried to cross and got crushed by a speeding car!
+        const hitTargetLane = lane + 1;
+        setCrushLane(hitTargetLane);
+        setCrushingCar(true);
+        beep("chip");
+
+        // Fast car collision animation: 220ms car speeds in, then SLAM!
+        setTimeout(() => {
+          setCrushed(true);
+          setCrushingCar(false);
+          setHopping(false);
+          setRunning(false);
+          setActive(false);
+          clearLocalChickenState();
+          beep("explode");
+          toast.error("SPLAT! A speeding car crushed the chicken!");
+          after(res.balance);
+        }, 250);
       } else if (res?.payout !== undefined) {
-        // Cashed out automatically (e.g. reached road 20)!
+        // Victory! Reached maximum road (Road 20)!
         setRunning(true);
         const newLane = lane + 1;
         setLane(newLane);
@@ -1241,10 +1395,10 @@ export function ChickenGame({ game }: { game: GameRow }) {
           setRunning(false);
           setHopping(false);
         }, 500);
-        toast.success(`Victory! Cashed out ${fmt(Number(res.payout))}`);
+        toast.success(`Victory! Cleared the highway! Cashed out ${fmt(Number(res.payout))}`);
         after(res.balance);
       } else {
-        // Sprinted safely across to next road!
+        // Sprinted safely across into the next road!
         const newLane = res?.lane !== undefined ? Number(res.lane) : lane + 1;
         setRunning(true);
         setLane(newLane);
@@ -1285,20 +1439,17 @@ export function ChickenGame({ game }: { game: GameRow }) {
       if (error) throw error;
       const res = data as any;
       const winMult = Number(res?.multiplier) || mult;
-      const winPayout = Number(res?.payout) || Math.floor(stake * mult);
+      const winPayout = Number(res?.payout) || Math.floor(stake * winMult);
       beep("cashout");
-      toast.success(`Cashed out at ${winMult.toFixed(2)}×! (+${fmt(winPayout)})`);
+      toast.success(`Cashed out safely at Road ${lane}! Won ${fmt(winPayout)} (${winMult.toFixed(2)}×)`);
+      setActive(false);
       clearLocalChickenState();
       after(res?.balance);
-    } catch (e: any) {
+    } catch (e) {
       const msg = errMsg(e);
-      if (
-        msg.toLowerCase().includes("no active round") ||
-        msg.toLowerCase().includes("not found") ||
-        msg.toLowerCase().includes("invalid")
-      ) {
+      if (msg.toLowerCase().includes("no active round") || msg.toLowerCase().includes("not found")) {
         clearLocalChickenState();
-        toast.info("No active round found. You can start a new run now!");
+        toast.info("Round was already ended.");
       } else {
         toast.error(msg);
       }
@@ -1312,10 +1463,10 @@ export function ChickenGame({ game }: { game: GameRow }) {
     try {
       await (supabase.rpc as any)("chicken_reset_stuck");
       clearLocalChickenState();
-      toast.success("Round reset! You can now start a new run.");
+      toast.success("Previous stuck round cleared. You can start a fresh run!");
     } catch (e) {
       clearLocalChickenState();
-      toast.success("Round reset locally! You can now start a new run.");
+      toast.info("Round reset.");
     } finally {
       setBusy(false);
     }
@@ -1323,9 +1474,12 @@ export function ChickenGame({ game }: { game: GameRow }) {
 
   const currentPayout = Math.floor(stake * mult);
 
+  // Total segments: 0 (Start Curb), 1..20 (Roads 1 to 20), 21 (Finish Golden Barn)
+  const ALL_ROADS = Array.from({ length: 22 }, (_, i) => i);
+
   return (
     <div className="space-y-4 font-sans">
-      {/* Chicken Road 2 Scrolling Highway Scene: 3 Segments visible at all times */}
+      {/* Chicken Road Highway Scene: Scrolling Track */}
       <Card className="relative overflow-hidden p-0 border-border/60 bg-[#101114] shadow-2xl rounded-2xl">
         {/* Status header with current road and current multiplier */}
         <div className="flex items-center justify-between border-b border-border/40 bg-black/60 px-4 py-2.5 text-xs">
@@ -1334,7 +1488,7 @@ export function ChickenGame({ game }: { game: GameRow }) {
           </span>
           <div className="flex items-center gap-4">
             <span className="text-xs text-muted-foreground font-medium">
-              Road: <strong className="text-foreground font-bold">{lane}/20</strong>
+              Position: <strong className="text-foreground font-bold">{lane === 0 ? "Start Curb" : `Road ${lane}/20`}</strong>
             </span>
             <div className="flex items-center gap-1.5 rounded-full bg-amber-500/10 px-3 py-1 border border-amber-500/30">
               <span className="text-[10px] uppercase font-bold text-amber-300">Win</span>
@@ -1345,110 +1499,150 @@ export function ChickenGame({ game }: { game: GameRow }) {
           </div>
         </div>
 
-        {/* 3 Visible Segments Layout:
-            - When lane === 0:
-              Slot 0: START CURB / SIDEWALK (Safe Zone, chicken stands here! NOT on Road 1!)
-              Slot 1: ROAD 1
-              Slot 2: ROAD 2
-            - When lane >= 1:
-              Slot 0: ROAD {lane} (Current road chicken is on, cleared, cars STOPPED)
-              Slot 1: ROAD {lane + 1}
-              Slot 2: ROAD {lane + 2} */}
-        <div className="relative h-80 sm:h-96 md:h-[420px] w-full grid grid-cols-3 bg-[#141518] p-0 select-none overflow-hidden">
-          {[0, 1, 2].map((slotIdx) => {
-            const isStartCurb = lane === 0 && slotIdx === 0;
-            const roadNum = lane === 0 ? slotIdx : lane + slotIdx;
-            const isCleared = !isStartCurb && lane >= roadNum;
-            const roadMult = isStartCurb ? 1 : getChickenRoadMult(roadNum, diff);
-
-            return (
-              <div
-                key={`${lane}-${slotIdx}`}
-                className={cn(
-                  "relative flex flex-col items-center justify-center transition-colors duration-500",
-                  isStartCurb
-                    ? "bg-gradient-to-r from-[#1e293b] via-[#1a2333] to-[#161e2e] border-r-4 border-amber-400/80"
-                    : slotIdx === 0
-                    ? "bg-[#18191e] border-r-2 border-dashed border-amber-400/40"
-                    : slotIdx === 1
-                    ? "bg-[#16171b] border-r-2 border-dashed border-amber-400/40"
-                    : "bg-[#141518]"
-                )}
-              >
-                {isStartCurb ? (
-                  /* Start Curb Sidewalk Safe Zone */
-                  <div className="absolute top-3 z-10 flex flex-col items-center gap-1">
-                    <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 bg-black/80 px-2 py-0.5 rounded-md border border-emerald-500/30 flex items-center gap-1">
-                      <span>🏁</span> START CURB
-                    </span>
-                    <span className="text-[10px] font-mono font-bold text-muted-foreground bg-black/60 px-2 py-0.5 rounded-full">
-                      SAFE ZONE
-                    </span>
-                  </div>
-                ) : (
-                  /* Highway Road & Multiplier Badge */
-                  <div className="absolute top-3 z-10 flex flex-col items-center gap-1">
-                    <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground bg-black/70 px-2 py-0.5 rounded-md border border-white/10">
-                      ROAD {roadNum}
-                    </span>
-                    <span className="text-xs font-mono font-black text-amber-300 bg-black/80 px-2.5 py-0.5 rounded-full border border-amber-400/30 shadow-md">
-                      {roadMult.toFixed(2)}×
-                    </span>
-                  </div>
-                )}
-
-                {/* Cars on this slot: */}
-                {isStartCurb ? (
-                  /* No cars ever drive on the sidewalk! */
-                  <div className="absolute bottom-12 text-center opacity-30 select-none">
-                    <p className="text-[11px] font-mono text-emerald-300 font-bold uppercase tracking-wider">
-                      PEDESTRIAN CURB
-                    </p>
-                  </div>
-                ) : isCleared ? (
-                  /* Road is cleared: Cars STOPPED with red brake lights! */
-                  <div className="absolute top-16 z-20 pointer-events-none transition-all duration-300">
-                    <HighwayCar color="#DC2626" stopped />
-                  </div>
-                ) : carLaneOffset === slotIdx ? (
-                  /* Speeding car on upcoming danger road */
-                  <div
-                    className="absolute z-20 pointer-events-none transition-all duration-75"
-                    style={{ top: `${carY}px` }}
-                  >
-                    <HighwayCar color={carColor} />
-                  </div>
-                ) : null}
-
-                {/* Bottom Status Label */}
-                <span className="absolute bottom-3 text-[10px] font-mono tracking-widest font-black">
-                  {isStartCurb ? (
-                    <span className="text-emerald-400">WAITING TO CROSS</span>
-                  ) : isCleared ? (
-                    <span className="text-emerald-400">CLEARED ✓</span>
-                  ) : (
-                    <span className="text-muted-foreground/40">DANGER ZONE</span>
-                  )}
-                </span>
-              </div>
-            );
-          })}
-
-          {/* Realistic Running White Chicken Overlay:
-              Sits in Slot 0 (left: 16.666%).
-              When player clicks RUN, it sprints across into Slot 1 (left: 50%)! */}
+        {/* Viewport: 3 Roads visible at once with smooth camera track scrolling forward */}
+        <div className="relative h-80 sm:h-96 md:h-[420px] w-full bg-[#141518] p-0 select-none overflow-hidden">
+          {/* Moving Road Track Container: Slides left smoothly as chicken advances */}
           <div
-            className="absolute inset-y-0 pointer-events-none z-30 flex items-center justify-center transition-all duration-500 ease-in-out"
+            className="flex h-full w-full transition-transform duration-500 ease-out"
             style={{
-              left: `${running ? 50 : 16.666}%`,
-              transform: "translateX(-50%)",
+              transform: `translateX(-${lane * 33.333333}%)`,
             }}
           >
-            <RealisticWhiteChicken
-              crushed={crushed}
-              running={running}
-              hopping={hopping}
-            />
+            {ALL_ROADS.map((roadIndex) => {
+              const isStartCurb = roadIndex === 0;
+              const isFinish = roadIndex === 21;
+              const isCleared = !isStartCurb && !isFinish && roadIndex <= lane;
+              const isCurrent = roadIndex === lane;
+              const isNextDanger = roadIndex === lane + 1;
+              const roadMult = isStartCurb ? 1 : isFinish ? getChickenRoadMult(20, diff) : getChickenRoadMult(roadIndex, diff);
+              const hasCarTraffic = carOffset === roadIndex && !isCleared && !isStartCurb && !isFinish;
+              const isCrushPoint = crushed && crushLane === roadIndex;
+              const isCrushingIncoming = crushingCar && crushLane === roadIndex;
+
+              return (
+                <div
+                  key={roadIndex}
+                  className={cn(
+                    "relative flex-shrink-0 w-1/3 h-full flex flex-col items-center justify-center transition-colors duration-500 select-none",
+                    isStartCurb
+                      ? "bg-gradient-to-r from-[#1e293b] via-[#1a2333] to-[#161e2e] border-r-4 border-amber-400/80"
+                      : isFinish
+                      ? "bg-gradient-to-r from-amber-950/40 via-yellow-900/30 to-amber-900/40 border-l-4 border-gold"
+                      : isCleared
+                      ? "bg-[#18191e] border-r-2 border-dashed border-emerald-500/30"
+                      : isNextDanger
+                      ? "bg-[#16171b] border-r-2 border-dashed border-amber-400/50 shadow-inner"
+                      : "bg-[#141518] border-r-2 border-dashed border-white/10"
+                  )}
+                >
+                  {/* Top Segment Label Badge */}
+                  <div className="absolute top-3 z-10 flex flex-col items-center gap-1">
+                    {isStartCurb ? (
+                      <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 bg-black/80 px-2 py-0.5 rounded-md border border-emerald-500/30 flex items-center gap-1">
+                        <span>🏁</span> START CURB
+                      </span>
+                    ) : isFinish ? (
+                      <span className="text-[10px] font-black uppercase tracking-wider text-amber-300 bg-black/80 px-2 py-0.5 rounded-md border border-amber-400/40 flex items-center gap-1">
+                        <span>🏆</span> FINISH LINE
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground bg-black/70 px-2 py-0.5 rounded-md border border-white/10">
+                        ROAD {roadIndex}
+                      </span>
+                    )}
+
+                    {!isStartCurb && (
+                      <span
+                        className={cn(
+                          "text-xs font-mono font-black px-2.5 py-0.5 rounded-full border shadow-md",
+                          isCleared
+                            ? "bg-emerald-950/80 text-emerald-300 border-emerald-500/40"
+                            : isNextDanger
+                            ? "bg-black/90 text-amber-300 border-amber-400/50 animate-pulse"
+                            : "bg-black/80 text-muted-foreground border-border/40"
+                        )}
+                      >
+                        {roadMult.toFixed(2)}×
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Asphalt Painted Road Markings */}
+                  {!isStartCurb && !isFinish && isCleared && (
+                    <div className="absolute inset-y-16 w-8 flex flex-col justify-around items-center opacity-30 pointer-events-none">
+                      <div className="h-3 w-6 bg-emerald-400 rounded-sm" />
+                      <div className="h-3 w-6 bg-emerald-400 rounded-sm" />
+                      <div className="h-3 w-6 bg-emerald-400 rounded-sm" />
+                    </div>
+                  )}
+
+                  {/* Cars on this road: */}
+                  {isCleared ? (
+                    /* Cleared Road: Stopped car parked safely with red brake lights */
+                    <div className="absolute top-16 z-20 pointer-events-none transition-all duration-300">
+                      <HighwayCar color="#DC2626" stopped />
+                    </div>
+                  ) : hasCarTraffic ? (
+                    /* Traffic car driving down danger lane */
+                    <div
+                      className="absolute z-20 pointer-events-none transition-all duration-75"
+                      style={{ top: `${carY}px` }}
+                    >
+                      <HighwayCar color={carColor} />
+                    </div>
+                  ) : null}
+
+                  {/* Crushing Muscle Car zooming in on collision */}
+                  {isCrushingIncoming && (
+                    <div
+                      className="absolute z-30 pointer-events-none transition-all duration-200 ease-in"
+                      style={{ top: "45%" }}
+                    >
+                      <HighwayCar color="#DC2626" crushing />
+                    </div>
+                  )}
+
+                  {/* Stopped Car over crushed chicken */}
+                  {isCrushPoint && (
+                    <div className="absolute top-8 z-20 pointer-events-none">
+                      <HighwayCar color="#DC2626" stopped />
+                    </div>
+                  )}
+
+                  {/* Chicken Container: rendered on current lane (or crush lane if hit) */}
+                  {(isCurrent && !crushed) || isCrushPoint ? (
+                    <div
+                      className={cn(
+                        "relative z-30 flex items-center justify-center transition-all duration-300 pointer-events-none",
+                        hopping && "-translate-y-4 scale-105",
+                        running && "translate-x-3 rotate-12"
+                      )}
+                    >
+                      <RealisticWhiteChicken
+                        crushed={crushed}
+                        running={running}
+                        hopping={hopping}
+                      />
+                    </div>
+                  ) : null}
+
+                  {/* Bottom Status Label */}
+                  <span className="absolute bottom-3 text-[10px] font-mono tracking-widest font-black">
+                    {isStartCurb ? (
+                      <span className="text-emerald-400">SAFE ZONE</span>
+                    ) : isCleared ? (
+                      <span className="text-emerald-400">CLEARED ✓</span>
+                    ) : isNextDanger ? (
+                      <span className="text-amber-400 animate-pulse">NEXT TO CROSS</span>
+                    ) : isFinish ? (
+                      <span className="text-amber-300">GOAL</span>
+                    ) : (
+                      <span className="text-muted-foreground/30">DANGER ZONE</span>
+                    )}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </div>
       </Card>
@@ -1468,99 +1662,102 @@ export function ChickenGame({ game }: { game: GameRow }) {
             disabled={busy}
             className="rounded-lg bg-destructive px-3 py-1.5 font-bold text-destructive-foreground hover:bg-destructive/90 transition shadow-sm"
           >
-            Clear Stuck Round
+            Clear & Reset
           </button>
         </Card>
       )}
 
       {/* Controls & Betting Panel */}
-      <Card className="p-4 bg-card/60 backdrop-blur-md border-border/70 space-y-4 shadow-xl rounded-2xl">
-        <div className="grid grid-cols-2 gap-3">
-          {/* Difficulty selector */}
-          <div className="space-y-1.5">
-            <label className="text-[11px] font-bold uppercase text-muted-foreground tracking-wider">
-              Traffic Difficulty
-            </label>
-            <div className="grid grid-cols-2 gap-1.5">
+      <Card className="space-y-4 p-4 border-amber-500/20 bg-card/90">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+          <StakeInput
+            value={stake}
+            onChange={setStake}
+            min={game.min_stake}
+            max={game.max_stake}
+            disabled={active || busy}
+          />
+
+          <div>
+            <label className="text-xs text-muted-foreground block mb-1">Difficulty Level</label>
+            <div className="grid grid-cols-4 gap-1">
               {CHICKEN_DIFFS.map((d) => (
                 <button
                   key={d.id}
                   type="button"
-                  onClick={() => !active && setDiff(d.id)}
                   disabled={active || busy}
+                  onClick={() => setDiff(d.id)}
                   className={cn(
-                    "rounded-lg py-2 px-2 text-xs font-bold transition border flex flex-col items-center justify-center",
+                    "rounded-xl py-2 px-1 text-center font-bold text-xs transition border",
                     diff === d.id
-                      ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                      : "bg-secondary/40 text-foreground border-border/50 hover:bg-secondary/80"
+                      ? "bg-amber-500 text-black border-amber-400 shadow-md font-black"
+                      : "bg-secondary text-muted-foreground border-border hover:bg-secondary/80 disabled:opacity-50"
                   )}
                 >
-                  <span>{d.label}</span>
-                  <span className="text-[9px] opacity-75 font-mono">{d.multText}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Stake selector */}
-          <div className="space-y-1.5">
-            <div className="flex justify-between items-center text-[11px] font-bold uppercase text-muted-foreground tracking-wider">
-              <span>Bet Amount</span>
-              <span className="font-mono text-foreground font-black">{fmt(stake)}</span>
-            </div>
-            <div className="grid grid-cols-3 gap-1.5">
-              {[10, 50, 100, 500, 1000, 5000].map((val) => (
-                <button
-                  key={val}
-                  type="button"
-                  onClick={() => !active && setStake(val)}
-                  disabled={active || busy}
-                  className={cn(
-                    "rounded-lg py-1.5 text-xs font-mono font-bold transition border",
-                    stake === val
-                      ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                      : "bg-secondary/40 text-foreground border-border/50 hover:bg-secondary/80"
-                  )}
-                >
-                  {val}
+                  <div>{d.label}</div>
+                  <div className="text-[9px] font-mono opacity-80 mt-0.5">{d.multText}</div>
                 </button>
               ))}
             </div>
           </div>
         </div>
 
-        {/* Action Button: Cross Road (Step) or Cash Out */}
-        {active ? (
-          <div className="grid grid-cols-2 gap-3 pt-1">
+        {/* Quick Stake Preset Buttons */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+          <span className="text-[10px] text-muted-foreground uppercase font-bold shrink-0">PKR:</span>
+          {[50, 100, 200, 500, 1000, 2000].map((amt) => (
             <button
+              key={amt}
               type="button"
-              onClick={stepForward}
-              disabled={busy || crushed || lane >= 20}
-              className="h-13 rounded-xl bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-600 text-black font-display text-base font-black tracking-wide shadow-xl shadow-amber-500/25 transition active:scale-98 hover:brightness-110 flex items-center justify-center gap-2 border border-yellow-400/60 disabled:opacity-50 cursor-pointer"
+              disabled={active || busy}
+              onClick={() => setStake(amt)}
+              className="rounded-lg bg-secondary/80 px-2.5 py-1 text-xs font-mono font-bold hover:bg-secondary text-foreground transition active:scale-95 disabled:opacity-40"
             >
-              <span className="text-xl animate-bounce">🐔</span>
-              <span>RUN TO ROAD {lane + 1} 💨</span>
+              +{amt}
             </button>
+          ))}
+        </div>
 
+        {/* Action Button: Cross Road (Step) or Cash Out */}
+        <div>
+          {!active ? (
             <button
               type="button"
-              onClick={cash}
-              disabled={busy || crushed || lane === 0}
-              className="h-13 rounded-xl bg-gradient-to-r from-emerald-600 via-green-600 to-emerald-700 text-white font-display text-base font-black tracking-wide shadow-xl shadow-emerald-500/25 transition active:scale-98 hover:brightness-110 flex items-center justify-center gap-2 border border-emerald-400/50 disabled:opacity-50 cursor-pointer"
+              disabled={busy}
+              onClick={start}
+              className="w-full h-12 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 text-black font-display text-base font-black tracking-wide shadow-lg shadow-amber-500/20 hover:brightness-110 active:scale-98 transition cursor-pointer disabled:opacity-50"
             >
-              <span>{lane === 0 ? "WAITING AT START" : `CASHOUT ${fmt(currentPayout)}`}</span>
+              {busy ? "PREPARING RUN..." : `START RUN (${fmt(stake)})`}
             </button>
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={start}
-            disabled={busy}
-            className="w-full h-13 rounded-xl bg-gradient-to-r from-primary via-primary/95 to-primary text-primary-foreground font-display text-base font-black tracking-wide shadow-xl shadow-primary/20 transition active:scale-98 hover:brightness-110 border border-primary/40 cursor-pointer"
-          >
-            START RUN ({fmt(stake)})
-          </button>
-        )}
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <button
+                type="button"
+                disabled={busy || crushed}
+                onClick={stepForward}
+                className="w-full h-12 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 text-black font-display text-base font-black tracking-wide shadow-lg shadow-amber-500/30 hover:brightness-110 active:scale-98 transition cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                <Footprints className="h-5 w-5" />
+                {busy ? "CROSSING..." : `CROSS ROAD ${lane + 1} (${getChickenRoadMult(lane + 1, diff).toFixed(2)}×)`}
+              </button>
+
+              <button
+                type="button"
+                disabled={busy || crushed || lane === 0}
+                onClick={cash}
+                className={cn(
+                  "w-full h-12 rounded-xl font-display text-base font-black tracking-wide shadow-lg transition active:scale-98 flex items-center justify-center gap-2",
+                  lane === 0
+                    ? "bg-secondary/60 text-muted-foreground cursor-not-allowed border border-border/40"
+                    : "bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-emerald-500/30 hover:brightness-110 cursor-pointer"
+                )}
+              >
+                <ShieldCheck className="h-5 w-5" />
+                {lane === 0 ? "CROSS 1 ROAD TO CASHOUT" : `CASH OUT ${fmt(currentPayout)}`}
+              </button>
+            </div>
+          )}
+        </div>
       </Card>
     </div>
   );
