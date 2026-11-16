@@ -1017,7 +1017,7 @@ function getChickenRoadMult(lane: number, diff: string): number {
 
 export function ChickenGame({ game }: { game: GameRow }) {
   const { t } = useApp();
-  const after = useAfterPlay();
+  const after = useAfterPlay(game.slug);
   const [stake, setStake] = useState<number>(game.min_stake);
   const [diff, setDiff] = useState<string>("easy");
   const [sid, setSid] = useState<string | null>(null);
@@ -1100,8 +1100,8 @@ export function ChickenGame({ game }: { game: GameRow }) {
       // Upcoming roads in current 3-road view:
       // index 0 is chicken's road (cars stopped). index 1 and 2 are upcoming roads!
       const upcomingIndices = lane === 0 ? [0, 1, 2] : [1, 2];
-      const targetOffset = upcomingIndices[Math.floor(Math.random() * upcomingIndices.length)];
-      const randomColor = CAR_COLORS[Math.floor(Math.random() * CAR_COLORS.length)];
+      const targetOffset = upcomingIndices[Math.floor(Math.random() * upcomingIndices.length)] ?? 1;
+      const randomColor = CAR_COLORS[Math.floor(Math.random() * CAR_COLORS.length)] ?? "#DC2626";
 
       setCarLaneOffset(targetOffset);
       setCarColor(randomColor);
@@ -1434,7 +1434,7 @@ export function ChickenGame({ game }: { game: GameRow }) {
               Traffic Difficulty
             </label>
             <div className="grid grid-cols-2 gap-1.5">
-              {DIFFICULTIES.map((d) => (
+              {CHICKEN_DIFFS.map((d) => (
                 <button
                   key={d.id}
                   type="button"
