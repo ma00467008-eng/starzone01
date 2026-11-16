@@ -173,7 +173,7 @@ export function CrashGame({ game }: { game: GameRow }) {
 
         const { data, error } = await (supabase.rpc as any)("crash_start", {
           _stake: currentStake,
-          _auto_cashout: currentAuto,
+          _auto: currentAuto,
         });
 
         if (error) {
@@ -197,7 +197,7 @@ export function CrashGame({ game }: { game: GameRow }) {
 
             const retry = await (supabase.rpc as any)("crash_start", {
               _stake: currentStake,
-              _auto_cashout: currentAuto,
+              _auto: currentAuto,
             });
             if (retry.error) throw retry.error;
             resData = retry.data;
