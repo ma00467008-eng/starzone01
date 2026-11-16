@@ -214,7 +214,29 @@ function DeductionsPanel() {
 }
 
 /* ---------------- Coins ---------------- */
-export function CoinsMod() {
+export function CoinsMod(<div className="mt-3 grid gap-3 md:grid-cols-2">
+  <Field label="1st Deposit Wager Multiplier (e.g. 2 for 2x)">
+    <input
+      type="number"
+      step="0.1"
+      min="0"
+      value={d.wager_first ?? 2}
+      onChange={(e) => set({ wager_first: Number(e.target.value) })}
+      className={inputCls}
+    />
+  </Field>
+  <Field label="2nd+ Deposit Wager Multiplier (e.g. 1 for 1x)">
+    <input
+      type="number"
+      step="0.1"
+      min="0"
+      value={d.wager_next ?? 1}
+      onChange={(e) => set({ wager_next: Number(e.target.value) })}
+      className={inputCls}
+    />
+  </Field>
+</div>
+) {
   const [filter, setFilter] = useState("pending");
   const refresh = useRefresh();
   const { data: reqs } = useQuery({
