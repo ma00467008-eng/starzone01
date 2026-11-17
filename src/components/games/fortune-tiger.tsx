@@ -242,29 +242,42 @@ function TigressMascot({
   isFeature: boolean;
   isSpinning: boolean;
 }) {
+  const [imgErr, setImgErr] = useState(false);
+
   return (
     <div className="relative mx-auto flex flex-col items-center justify-center pt-1 pb-2">
       {/* Golden Chi aura behind Tigress */}
       <div
         className={cn(
-          "absolute h-36 w-36 rounded-full transition-all duration-500",
+          "absolute h-40 w-40 rounded-full transition-all duration-500",
           isRoaring
-            ? "bg-gradient-to-t from-amber-500/50 via-yellow-400/40 to-transparent scale-125 animate-pulse blur-xl"
+            ? "bg-gradient-to-t from-amber-500/60 via-yellow-400/50 to-transparent scale-125 animate-pulse blur-2xl"
             : isFeature
-            ? "bg-gradient-to-t from-red-600/50 via-amber-500/40 to-transparent scale-110 animate-bounce blur-lg"
+            ? "bg-gradient-to-t from-red-600/60 via-amber-500/50 to-transparent scale-110 animate-bounce blur-xl"
             : isSpinning
-            ? "bg-amber-500/25 scale-105 animate-pulse blur-md"
-            : "bg-amber-500/10 scale-95 blur-sm"
+            ? "bg-amber-500/30 scale-105 animate-pulse blur-lg"
+            : "bg-amber-500/15 scale-95 blur-md"
         )}
       />
 
       <div
         className={cn(
           "relative z-10 transition-transform duration-300",
-          isRoaring ? "scale-110" : isSpinning ? "scale-105" : "hover:scale-102"
+          isRoaring ? "scale-110 -translate-y-1" : isSpinning ? "scale-105" : "hover:scale-102"
         )}
       >
-        <svg
+        {!imgErr ? (
+          <img
+            src="/games/tigress.png"
+            alt="Master Tigress"
+            onError={() => setImgErr(true)}
+            className={cn(
+              "h-32 w-32 object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,0.9)] transition-all duration-300",
+              isRoaring && "drop-shadow-[0_0_25px_rgba(245,158,11,0.9)]"
+            )}
+          />
+        ) : (
+<svg
           viewBox="0 0 160 145"
           className="h-28 w-32 drop-shadow-[0_8px_16px_rgba(0,0,0,0.85)]"
         >
@@ -384,6 +397,7 @@ function TigressMascot({
             </>
           )}
         </svg>
+        )}
       </div>
 
       {/* Tigress Title Badge */}
