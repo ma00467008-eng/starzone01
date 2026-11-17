@@ -5,6 +5,7 @@ import { useApp } from "@/lib/app-context";
 import { AppShell, Card, RequireLogin, RoundHistory, Spinner } from "@/components/sz/shell";
 import { Balance, Empty } from "@/components/sz/bits";
 import { WingoGame } from "@/components/games/wingo";
+import { FortuneTigerGame } from "@/components/games/fortune-tiger";
 import { CrashGame, MinesGame, ChickenGame } from "@/components/games/session-games";
 import { DiceGame, LimboGame, PlinkoGame, DragonTigerGame } from "@/components/games/instant-games";
 import { FortuneGemsGame } from "@/components/games/fortune-gems";
@@ -25,6 +26,7 @@ export const Route = createFileRoute("/game/$slug")({
 });
 
 const MAP: Record<string, (p: { game: GameRow }) => React.ReactNode> = {
+"fortune-tiger": FortuneTigerGame,
   wingo: WingoGame, trx: WingoGame, color: WingoGame,
   aviator: CrashGame, mines: MinesGame, chicken: ChickenGame,
   "fortune-gems": FortuneGemsGame,
