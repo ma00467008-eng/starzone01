@@ -5,6 +5,7 @@ import { useApp } from "@/lib/app-context";
 import { AppShell, Card, RequireLogin, RoundHistory, Spinner } from "@/components/sz/shell";
 import { Balance, Empty } from "@/components/sz/bits";
 import { WingoGame } from "@/components/games/wingo";
+import { TrxWingoGame } from "@/components/games/trx-wingo";
 import { FortuneTigerGame } from "@/components/games/fortune-tiger";
 import { CrashGame, MinesGame, ChickenGame } from "@/components/games/session-games";
 import { DiceGame, LimboGame, PlinkoGame, DragonTigerGame } from "@/components/games/instant-games";
@@ -31,17 +32,25 @@ export const Route = createFileRoute("/game/$slug")({
 
 const MAP: Record<string, (p: { game: GameRow }) => React.ReactNode> = {
   "fortune-tiger": FortuneTigerGame,
-  wingo: WingoGame, color: WingoGame,
-  aviator: CrashGame, mines: MinesGame, chicken: ChickenGame,
+  wingo: WingoGame,
+  trx: TrxWingoGame,
+  color: WingoGame,
+  aviator: CrashGame,
+  mines: MinesGame,
+  chicken: ChickenGame,
   javelin: JavelinGame,
   "moto-racing": MotoRacingGame,
   "double-fortune": DoubleFortuneGame,
   "royal-fishing": RoyalFishingGame,
   "fortune-gems": FortuneGemsGame,
-  dice: DiceGame, limbo: LimboGame, plinko: PlinkoGame, "dragon-tiger": DragonTigerGame,
+  dice: DiceGame,
+  limbo: LimboGame,
+  plinko: PlinkoGame,
+  "dragon-tiger": DragonTigerGame,
 };
 
 const FALLBACK_GAMES: Record<string, Partial<GameRow>> = {
+  trx: { name: "TRX WinGo", min_stake: 10, max_stake: 10000, rules: "Guess the color, number, or size. Draw outcomes are directly tied to Tron blockchain block hashes." },
   javelin: { name: "Javelin", min_stake: 10, max_stake: 10000, rules: "Place your bet before launch. Cash out as the javelin soars before it lands!" },
   "moto-racing": { name: "Moto Racing", min_stake: 10, max_stake: 10000, rules: "Pick your bike (1-8), Big/Small, or Odd/Even. Watch the live race and win big!" },
   "double-fortune": { name: "Double Fortune", min_stake: 10, max_stake: 10000, rules: "5x3 Asian-themed slot with 243 ways to win. Match symbols from left to right." },
