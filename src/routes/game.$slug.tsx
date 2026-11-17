@@ -13,6 +13,7 @@ import { JavelinGame } from "@/components/games/javelin";
 import { MotoRacingGame } from "@/components/games/moto-racing";
 import { DoubleFortuneGame } from "@/components/games/double-fortune";
 import { RoyalFishingGame } from "@/components/games/royal-fishing";
+import { TrxWingoGame } from "@/components/games/trx-wingo";
 import type { GameRow } from "@/components/games/types";
 
 export const Route = createFileRoute("/game/$slug")({
@@ -31,7 +32,7 @@ export const Route = createFileRoute("/game/$slug")({
 
 const MAP: Record<string, (p: { game: GameRow }) => React.ReactNode> = {
   "fortune-tiger": FortuneTigerGame,
-  wingo: WingoGame, trx: WingoGame, color: WingoGame,
+  wingo: WingoGame, trx: TrxWingoGame, color: WingoGame,
   aviator: CrashGame, mines: MinesGame, chicken: ChickenGame,
   javelin: JavelinGame,
   "moto-racing": MotoRacingGame,
@@ -42,6 +43,7 @@ const MAP: Record<string, (p: { game: GameRow }) => React.ReactNode> = {
 };
 
 const FALLBACK_GAMES: Record<string, Partial<GameRow>> = {
+  trx: { name: "TRX Win Go", min_stake: 10, max_stake: 100000, rules: "Tron public blockchain hash lottery. Bet on numbers, colors, or big/small." },
   javelin: { name: "Javelin", min_stake: 10, max_stake: 10000, rules: "Place your bet before launch. Cash out as the javelin soars before it lands!" },
   "moto-racing": { name: "Moto Racing", min_stake: 10, max_stake: 10000, rules: "Pick your bike (1-8), Big/Small, or Odd/Even. Watch the live race and win big!" },
   "double-fortune": { name: "Double Fortune", min_stake: 10, max_stake: 10000, rules: "5x3 Asian-themed slot with 243 ways to win. Match symbols from left to right." },
