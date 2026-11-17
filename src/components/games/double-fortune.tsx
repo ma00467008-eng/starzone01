@@ -185,6 +185,38 @@ function FortuneSymbolRenderer({ id }: { id: number }) {
    Main Component: Realistic PG Soft Double Fortune Slot
    ========================================================================= */
 
+function parse5x3Grid(raw: any): number[][] {
+  if (Array.isArray(raw)) {
+    // 1D array of 15 items: row 0 is [0..4], row 1 is [5..9], row 2 is [10..14]
+    if (raw.length === 15 && typeof raw[0] === "number") {
+      const cols: number[][] = [];
+      for (let c = 0; c < 5; c++) {
+        cols.push([Number(raw[c]) || 0, Number(raw[5 + c]) || 0, Number(raw[10 + c]) || 0]);
+      }
+      return cols;
+    }
+    // 2D array of 5 columns
+    if (raw.length === 5 && Array.isArray(raw[0])) {
+      return raw.map((c) => Array.isArray(c) ? c.slice(0, 3).map(Number) : [1, 2, 3]);
+    }
+    // 2D array of 3 rows
+    if (raw.length === 3 && Array.isArray(raw[0])) {
+      const cols: number[][] = [];
+      for (let c = 0; c < 5; c++) {
+        cols.push([Number(raw[0][c]) || 0, Number(raw[1][c]) || 0, Number(raw[2][c]) || 0]);
+      }
+      return cols;
+    }
+  }
+  return [
+    [1, 7, 8],
+    [3, 0, 9],
+    [2, 4, 7],
+    [8, 5, 1],
+    [9, 2, 6],
+  ];
+}
+
 export function DoubleFortuneGame({ game }: { game: GameRow }) {
   const { session } = useApp();
   const afterPlay = useAfterPlay(game.slug);
@@ -259,7 +291,7 @@ export function DoubleFortuneGame({ game }: { game: GameRow }) {
       return;
     }
 
-    const finalGrid: number[][] = resultData.grid || Array.from({ length: 5 }, () => [1, 2, 3]);
+    const finalGrid: number[][] = parse5x3Grid(resultData?.grid);
     const stopInterval = turbo ? 180 : 320;
 
     // Sequential stop Reel 1 to 5
@@ -341,7 +373,8 @@ export function DoubleFortuneGame({ game }: { game: GameRow }) {
         {/* 5x3 Reel Grid Arena */}
         <div className="relative p-3 sm:p-5">
           <div className="grid grid-cols-5 gap-1.5 sm:gap-2.5 rounded-xl border border-amber-500/30 bg-black/80 p-2 sm:p-3 shadow-inner">
-            {grid.map((column, colIdx) => {
+            {grid.map((rawCol, colIdx) => {
+              const column = Array.isArray(rawCol) ? rawCol : [0, 1, 2];
               const isSpinning = reelSpinning[colIdx];
               return (
                 <div
