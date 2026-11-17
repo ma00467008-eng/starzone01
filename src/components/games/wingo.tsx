@@ -12,7 +12,7 @@ import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { ActionButton, ResultPopup, Stage, type Outcome } from "./kit";
 import type { GameRow } from "./types";
 
-const MODES: Record<string, number[]> = { wingo: [30, 60, 180, 300], trx: [60, 180, 300], color: [60, 180, 300] };
+const MODES: Record<string, number[]> = { wingo: [30, 60, 180, 300], color: [60, 180, 300] };
 const label = (d: number) => (d < 60 ? `${d} sec` : `${d / 60} Min`);
 
 export const numColors = (n: number) => (n === 0 ? ["red", "violet"] : n === 5 ? ["green", "violet"] : n % 2 ? ["green"] : ["red"]);
@@ -279,7 +279,6 @@ export function WingoGame({ game }: { game: GameRow }) {
   const qc = useQueryClient();
   const after = useAfterPlay(game.slug);
   const lastPeriod = useRef<number | null>(null);
-  const isTrx = game.slug === "trx";
 
   useEffect(() => {
     setPage(1);
@@ -638,7 +637,7 @@ export function WingoGame({ game }: { game: GameRow }) {
             )}
           >
             <Clock className="h-5 w-5" />
-            {isTrx ? "TRX" : "WinGo"}
+            WinGo
             <br />
             {label(m)}
           </button>
@@ -651,7 +650,7 @@ export function WingoGame({ game }: { game: GameRow }) {
           <div className="min-w-0 flex flex-col justify-between">
             <div>
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <span className="font-bold text-foreground">{isTrx ? "TRX WinGo" : game.name} {label(dur)}</span>
+                <span className="font-bold text-foreground">{game.name} {label(dur)}</span>
                 <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-500 border border-emerald-500/20">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" /> Live
                 </span>
@@ -861,9 +860,7 @@ export function WingoGame({ game }: { game: GameRow }) {
               <table className="w-full text-sm">
                 <thead className="bg-gradient-primary text-xs text-primary-foreground">
                   <tr>
-                    <th className="px-3 py-2.5 text-left">Period</th>
-                    {isTrx && <th className="text-left">Block</th>}
-                    <th className="text-center">Number</th>
+                    <th className="px-3 py-2.5 text-left">Period</th>                    <th className="text-center">Number</th>
                     <th className="text-center">Big/Small</th>
                     <th className="text-center">Color</th>
                   </tr>
@@ -871,9 +868,7 @@ export function WingoGame({ game }: { game: GameRow }) {
                 <tbody>
                   {(pagedHist.length ? pagedHist : (feedItems ?? []).slice(0, 10)).map((h) => (
                     <tr key={h.period} className="border-t border-border/60 hover:bg-secondary/20">
-                      <td className="px-3 py-2.5 font-mono text-xs">{h.period}</td>
-                      {isTrx && <td className="font-mono text-[10px] text-muted-foreground">{h.hash?.slice(-6)}</td>}
-                      <td className="text-center">
+                      <td className="px-3 py-2.5 font-mono text-xs">{h.period}</td>                      <td className="text-center">
                         <div className="flex justify-center">
                           <Ball n={h.number} size="sm" />
                         </div>
@@ -1163,7 +1158,7 @@ export function WingoGame({ game }: { game: GameRow }) {
             style={{ clipPath: "polygon(0 0,100% 0,100% 80%,50% 100%,0 80%)" }}
           >
             <div className="font-display text-lg font-bold">
-              {isTrx ? "TRX WinGo" : "WinGo"} {label(dur)}
+              WinGo {label(dur)}
             </div>
             <div className="mt-1 inline-block rounded-lg bg-card px-4 py-1 text-sm font-bold capitalize text-foreground">Select {sel?.value}</div>
           </div>
