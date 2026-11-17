@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Flame, Trophy, ShieldCheck, Sparkles, AlertCircle } from "lucide-react";
+import { Flame, Trophy, ShieldCheck, Sparkles, Wind, Gauge, Zap } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useApp, errMsg } from "@/lib/app-context";
 import { beep, fmt } from "@/lib/sound";
@@ -9,7 +9,7 @@ import { Card, PrimaryButton, StakeInput, useAfterPlay } from "@/components/sz/s
 import type { GameRow } from "./types";
 
 /* =========================================================================
-   Javelin Crash Game (Olympic Field, Realistic Stick Flight & Multiplier)
+   Realistic Olympic Competition Javelin & Athletic Arena
    ========================================================================= */
 
 function JavelinArena({
@@ -17,47 +17,50 @@ function JavelinArena({
   progress,
   mult,
   crashed,
+  windSpeed,
 }: {
   phase: "countdown" | "flying" | "crashed";
   progress: number;
   mult: number;
   crashed: boolean;
+  windSpeed: string;
 }) {
-  // Angle of javelin: ascending 36deg at start, leveling out to 15deg, plunging down -65deg when crashed
-  const angle = crashed ? -65 : Math.max(14, 38 - progress * 24);
+  // Angle of javelin: ascending 35deg at start, leveling to 12deg, plunging -68deg when hitting turf
+  const angle = crashed ? -68 : Math.max(12, 38 - progress * 26);
 
-  // Position across the arena: X from 15% to 80%, Y from 72% down to 22% (arc flight)
-  const posX = crashed ? Math.min(85, 20 + progress * 65) : 15 + Math.min(1, progress) * 65;
-  const posY = crashed ? 78 : Math.max(20, 72 - Math.sin(Math.min(1, progress) * Math.PI * 0.85) * 52);
+  // Position across the stadium: X from 12% to 84%, Y from 75% down to 22%
+  const posX = crashed ? Math.min(86, 18 + progress * 68) : 12 + Math.min(1, progress) * 72;
+  const posY = crashed ? 78 : Math.max(20, 75 - Math.sin(Math.min(1, progress) * Math.PI * 0.88) * 54);
 
   return (
-    <div className="relative h-64 w-full overflow-hidden rounded-2xl border border-border/40 bg-gradient-to-b from-sky-950 via-slate-900 to-emerald-950 shadow-inner select-none">
+    <div className="relative h-72 sm:h-80 w-full overflow-hidden rounded-2xl border border-emerald-500/30 bg-gradient-to-b from-[#031526] via-[#061e1a] to-[#041a0d] shadow-2xl select-none">
       {/* Stadium Floodlights & Sky Glow */}
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute left-6 top-0 h-44 w-32 -rotate-12 bg-gradient-to-b from-amber-200/20 via-sky-400/10 to-transparent blur-md" />
-        <div className="absolute right-6 top-0 h-44 w-32 rotate-12 bg-gradient-to-b from-amber-200/20 via-sky-400/10 to-transparent blur-md" />
-        <div className="absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-sky-500/10 to-transparent" />
+        <div className="absolute left-8 top-0 h-48 w-36 -rotate-12 bg-gradient-to-b from-amber-100/25 via-emerald-400/10 to-transparent blur-lg" />
+        <div className="absolute right-8 top-0 h-48 w-36 rotate-12 bg-gradient-to-b from-amber-100/25 via-emerald-400/10 to-transparent blur-lg" />
+        <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-sky-400/10 to-transparent" />
 
         {/* Stadium Grandstand Crowd Silhouette */}
-        <div className="absolute inset-x-0 bottom-16 h-12 opacity-30">
-          <svg viewBox="0 0 400 40" preserveAspectRatio="none" className="h-full w-full fill-slate-700">
-            <path d="M0 40 L0 15 Q20 18 40 14 T80 16 T120 13 T160 15 T200 12 T240 15 T280 13 T320 16 T360 14 T400 15 L400 40 Z" />
+        <div className="absolute inset-x-0 bottom-20 h-14 opacity-25">
+          <svg viewBox="0 0 500 40" preserveAspectRatio="none" className="h-full w-full fill-slate-700">
+            <path d="M0 40 L0 18 Q25 22 50 16 T100 20 T150 15 T200 19 T250 14 T300 18 T350 15 T400 19 T450 16 T500 18 L500 40 Z" />
           </svg>
         </div>
 
-        {/* Olympic Track & Grass Turf */}
-        <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-emerald-900 via-emerald-800 to-emerald-700/80 border-t-2 border-emerald-500/30">
+        {/* Olympic Tartan Track & Grass Turf Infield */}
+        <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-emerald-950 via-emerald-900 to-emerald-800/90 border-t-2 border-emerald-500/40">
           {/* Distance marking arc lines */}
-          <div className="absolute inset-0 flex justify-around items-end pb-1 text-[10px] font-mono font-bold text-emerald-300/40 uppercase tracking-widest">
+          <div className="absolute inset-0 flex justify-around items-end pb-1.5 text-[11px] font-mono font-bold text-emerald-300/50 uppercase tracking-widest">
             <span>20m</span>
             <span>40m</span>
             <span>60m</span>
             <span>80m</span>
             <span>100m</span>
+            <span>120m</span>
           </div>
-          {/* Turf runway markings */}
-          <div className="absolute left-4 top-2 h-0.5 w-24 bg-white/30 rounded" />
-          <div className="absolute left-10 bottom-3 h-0.5 w-16 bg-amber-400/40 rounded" />
+          {/* Official Sector White Boundary Arcs */}
+          <div className="absolute left-4 top-2 h-0.5 w-32 bg-white/40 rounded" />
+          <div className="absolute left-12 bottom-4 h-0.5 w-24 bg-amber-400/50 rounded" />
         </div>
       </div>
 
@@ -66,486 +69,346 @@ function JavelinArena({
         <svg className="pointer-events-none absolute inset-0 h-full w-full">
           <defs>
             <linearGradient id="javelinTrail" x1="0%" y1="100%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#38bdf8" stopOpacity="0" />
-              <stop offset="70%" stopColor="#facc15" stopOpacity="0.6" />
-              <stop offset="100%" stopColor="#f97316" stopOpacity="0.9" />
+              <stop offset="0%" stopColor="#10b981" stopOpacity="0" />
+              <stop offset="60%" stopColor="#facc15" stopOpacity="0.7" />
+              <stop offset="100%" stopColor="#ef4444" stopOpacity="0.95" />
             </linearGradient>
           </defs>
           <path
-            d={`M 15 72 Q ${posX * 0.5} ${posY * 0.6}, ${posX} ${posY}`}
+            d={`M 12 75 Q ${posX * 0.45} ${posY * 0.6}, ${posX} ${posY}`}
             fill="none"
             stroke="url(#javelinTrail)"
-            strokeWidth="2.5"
-            strokeDasharray="4 4"
+            strokeWidth="3"
+            strokeDasharray="5 5"
             className="animate-pulse"
           />
         </svg>
       )}
 
-      {/* Center Multiplier Display */}
+      {/* Center Real-Time Multiplier Display */}
       <div className="absolute inset-x-0 top-6 flex flex-col items-center justify-center text-center">
         {phase === "countdown" ? (
-          <div className="rounded-full bg-slate-900/80 px-4 py-1.5 backdrop-blur border border-white/10 shadow-lg">
-            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Next Throw In</span>
-            <div className="font-mono text-2xl font-black text-amber-400">Ready</div>
+          <div className="rounded-full bg-slate-950/80 px-5 py-2 backdrop-blur border border-white/10 shadow-2xl">
+            <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+              OLYMPIC THROW IN
+            </span>
+            <div className="font-mono text-2xl sm:text-3xl font-black text-amber-400 mt-0.5">
+              PREPARING
+            </div>
           </div>
         ) : (
           <div className="flex flex-col items-center">
             <span
               className={cn(
-                "font-mono text-4xl sm:text-5xl font-black tracking-tight drop-shadow-md transition-colors",
+                "font-mono text-5xl sm:text-6xl font-black tracking-tight drop-shadow-[0_4px_20px_rgba(0,0,0,0.8)] transition-colors",
                 crashed ? "text-red-500 animate-bounce" : "text-emerald-400"
               )}
             >
               {mult.toFixed(2)}×
             </span>
-            <span className="text-xs font-bold uppercase tracking-widest text-slate-300/80 mt-0.5">
+            <span className="text-xs font-bold uppercase tracking-widest text-slate-300 mt-1">
               {crashed ? "Landed on Turf" : "In Flight"}
             </span>
           </div>
         )}
       </div>
 
-      {/* Thrower Athlete Silhouette */}
-      <div
-        className={cn(
-          "absolute left-4 bottom-14 transition-opacity duration-300",
-          phase === "countdown" ? "opacity-100" : "opacity-40"
-        )}
-      >
-        <svg viewBox="0 0 50 60" className="h-12 w-10 fill-amber-300/80 drop-shadow">
-          <circle cx="28" cy="10" r="5" />
-          <path d="M28 15 L22 32 L16 50 L12 52 M22 32 L28 48 L34 52" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" />
-          <path d="M24 20 L36 12 L44 8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
-          <path d="M24 22 L14 24" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
-        </svg>
+      {/* Live Stadium Wind Telemetry HUD */}
+      <div className="absolute top-4 left-4 flex items-center gap-1.5 rounded-full bg-black/60 px-3 py-1 border border-white/10 text-xs font-mono text-emerald-300 backdrop-blur-sm">
+        <Wind className="h-3.5 w-3.5 text-emerald-400" />
+        <span>WIND: {windSpeed}</span>
       </div>
 
-      {/* Javelin Stick Projectile */}
+      {/* Realistic Competition Javelin Spear Flying */}
       {phase !== "countdown" && (
         <div
-          className="absolute transition-transform duration-75 pointer-events-none"
+          className="absolute pointer-events-none transition-all duration-75 ease-linear will-change-transform"
           style={{
             left: `${posX}%`,
             top: `${posY}%`,
             transform: `translate(-50%, -50%) rotate(${angle}deg)`,
           }}
         >
-          {!crashed && (
-            <div className="absolute -left-12 top-1/2 -translate-y-1/2 flex items-center">
-              <div className="h-0.5 w-12 bg-gradient-to-r from-transparent via-sky-300 to-amber-300 blur-[0.5px] animate-pulse" />
-              <div className="h-1 w-4 rounded-full bg-yellow-300/60 blur-[1px]" />
-            </div>
-          )}
-
-          {/* Javelin stick SVG */}
-          <svg viewBox="0 0 100 24" className="h-6 w-20 drop-shadow-[0_4px_8px_rgba(250,204,21,0.5)]">
-            <rect x="42" y="9" width="16" height="6" rx="2" fill="#78350f" />
-            <line x1="44" y1="9" x2="44" y2="15" stroke="#fef08a" strokeWidth="1" />
-            <line x1="48" y1="9" x2="48" y2="15" stroke="#fef08a" strokeWidth="1" />
-            <line x1="52" y1="9" x2="52" y2="15" stroke="#fef08a" strokeWidth="1" />
-            <line x1="56" y1="9" x2="56" y2="15" stroke="#fef08a" strokeWidth="1" />
-
-            <line x1="10" y1="12" x2="85" y2="12" stroke="#38bdf8" strokeWidth="3" strokeLinecap="round" />
-            <line x1="15" y1="12" x2="40" y2="12" stroke="#facc15" strokeWidth="3" />
-            <line x1="60" y1="12" x2="82" y2="12" stroke="#facc15" strokeWidth="3" />
-
-            <polygon points="85,9 98,12 85,15" fill="#e2e8f0" stroke="#94a3b8" strokeWidth="1" />
-            <polygon points="10,10 4,12 10,14" fill="#0284c7" />
-          </svg>
-
-          {crashed && (
-            <div className="absolute -bottom-2 right-0 flex items-center justify-center animate-ping">
-              <div className="h-4 w-4 rounded-full bg-emerald-400/80 blur-sm" />
-              <div className="h-2 w-2 rounded-full bg-amber-400" />
-            </div>
-          )}
+          {/* Carbon Fiber Competition Javelin with Titanium Tip */}
+          <div className="relative flex items-center">
+            {/* Speed trail glow */}
+            <div className="h-1 w-14 bg-gradient-to-r from-transparent to-amber-400/80 blur-[1px]" />
+            <svg viewBox="0 0 140 24" className="h-6 w-32 drop-shadow-[0_4px_10px_rgba(0,0,0,0.8)]" fill="none">
+              <defs>
+                <linearGradient id="javelinShaft" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="#475569" />
+                  <stop offset="35%" stopColor="#e2e8f0" />
+                  <stop offset="70%" stopColor="#0f172a" />
+                  <stop offset="100%" stopColor="#f8fafc" />
+                </linearGradient>
+              </defs>
+              {/* Shaft */}
+              <line x1="8" y1="12" x2="128" y2="12" stroke="url(#javelinShaft)" strokeWidth="3" strokeLinecap="round" />
+              {/* Cord Grip at center of gravity */}
+              <rect x="62" y="10" width="22" height="4" rx="1" fill="#ea580c" stroke="#c2410c" strokeWidth="0.5" />
+              {/* Titanium Spearhead Tip */}
+              <polygon points="128,10 138,12 128,14" fill="#f8fafc" stroke="#94a3b8" strokeWidth="0.8" />
+              {/* Tail Cap */}
+              <circle cx="8" cy="12" r="1.5" fill="#334155" />
+            </svg>
+          </div>
         </div>
       )}
     </div>
   );
 }
 
+/* =========================================================================
+   Main Component: Realistic Javelin Olympic Crash Game
+   ========================================================================= */
+
 export function JavelinGame({ game }: { game: GameRow }) {
-  const { t } = useApp();
-  const after = useAfterPlay(game.slug);
+  const { session } = useApp();
+  const afterPlay = useAfterPlay(game.slug);
 
-  const [stake, setStake] = useState(game.min_stake || 10);
-  const [auto, setAuto] = useState("");
-  const [past, setPast] = useState<number[]>([1.38, 2.45, 1.12, 5.80, 1.94, 3.10, 1.04, 11.2, 2.15]);
-
-  // Round lifecycle
+  const [stake, setStake] = useState<number>(game.min_stake || 10);
+  const [autoCashout, setAutoCashout] = useState<string>("2.00");
   const [phase, setPhase] = useState<"countdown" | "flying" | "crashed">("countdown");
-  const [countdown, setCountdown] = useState<number>(8);
-  const [mult, setMult] = useState(1.0);
   const [progress, setProgress] = useState(0);
+  const [mult, setMult] = useState(1.0);
+  const [inRound, setInRound] = useState(false);
+  const [cashedOut, setCashedOut] = useState(false);
+  const [cashedOutMult, setCashedOutMult] = useState<number | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [pastThrows, setPastThrows] = useState<number[]>([2.14, 1.45, 8.20, 1.12, 3.85, 12.40, 1.88]);
 
-  // Player bet state
-  const [myBetPlaced, setMyBetPlaced] = useState(false);
-  const [queuedBet, setQueuedBet] = useState(false);
-  const [cashedOutAt, setCashedOutAt] = useState<number | null>(null);
-  const [busy, setBusy] = useState(false);
+  const animRef = useRef<number | null>(null);
+  const roundStartRef = useRef<number>(0);
+  const crashPointRef = useRef<number>(2.0);
 
-  const sidRef = useRef<string | null>(null);
-  const flightStartRef = useRef<number>(0);
-  const spectatorCrashPoint = useRef<number>(2.4);
-
-  // Refs for stale closures
-  const myBetPlacedRef = useRef(false);
-  const queuedBetRef = useRef(false);
-  const stakeRef = useRef(stake);
-  const autoRef = useRef(auto);
-  const cashedOutAtRef = useRef<number | null>(null);
-  const busyRef = useRef(false);
-  const inFlightPollRef = useRef(false);
-  const multRef = useRef(1.0);
-
-  useEffect(() => { myBetPlacedRef.current = myBetPlaced; }, [myBetPlaced]);
-  useEffect(() => { queuedBetRef.current = queuedBet; }, [queuedBet]);
-  useEffect(() => { stakeRef.current = stake; }, [stake]);
-  useEffect(() => { autoRef.current = auto; }, [auto]);
-  useEffect(() => { cashedOutAtRef.current = cashedOutAt; }, [cashedOutAt]);
-  useEffect(() => { busyRef.current = busy; }, [busy]);
-  useEffect(() => { multRef.current = mult; }, [mult]);
-
-  // 1. Countdown timer & Game Loop
+  // Auto round cycle when not in player round
   useEffect(() => {
-    let timer: NodeJS.Timeout;
+    let t: NodeJS.Timeout;
     if (phase === "countdown") {
-      setCountdown(8);
-      setMult(1.0);
-      setProgress(0);
-      multRef.current = 1.0;
-      setCashedOutAt(null);
-      cashedOutAtRef.current = null;
-
-      if (queuedBetRef.current) {
-        setMyBetPlaced(true);
-        myBetPlacedRef.current = true;
-        setQueuedBet(false);
-        queuedBetRef.current = false;
-      }
-
-      const step = 100;
-      let left = 8.0;
-      timer = setInterval(() => {
-        left -= step / 1000;
-        setCountdown(Math.max(0, Math.round(left * 10) / 10));
-        if (left <= 0) {
-          clearInterval(timer);
-          startFlight();
-        }
-      }, step);
+      t = setTimeout(() => {
+        startRound();
+      }, 3500);
     }
-    return () => clearInterval(timer);
+    return () => clearTimeout(t);
   }, [phase]);
 
-  const startFlight = () => {
+  const startRound = async () => {
     setPhase("flying");
-    flightStartRef.current = Date.now();
+    setProgress(0);
+    setMult(1.0);
+    setCashedOut(false);
+    setCashedOutMult(null);
+    roundStartRef.current = performance.now();
 
-    const r = Math.random();
-    if (r < 0.12) spectatorCrashPoint.current = 1.0;
-    else if (r < 0.55) spectatorCrashPoint.current = +(1.01 + Math.random() * 1.1).toFixed(2);
-    else if (r < 0.88) spectatorCrashPoint.current = +(2.0 + Math.random() * 3.5).toFixed(2);
-    else spectatorCrashPoint.current = +(5.0 + Math.random() * 12.0).toFixed(2);
-
-    inFlightPollRef.current = false;
-  };
-
-  // 2. Flight tick & Cashout evaluation
-  useEffect(() => {
-    let animId: number;
-    if (phase === "flying") {
-      const tick = async () => {
-        const elapsed = (Date.now() - flightStartRef.current) / 1000;
-        const currentMult = Math.floor(Math.exp(0.09 * elapsed) * 100) / 100;
-        setMult(currentMult);
-        multRef.current = currentMult;
-        setProgress(Math.min(1, elapsed / 8.5));
-
-        if (myBetPlacedRef.current && sidRef.current && !cashedOutAtRef.current) {
-          const autoVal = parseFloat(autoRef.current);
-          const shouldAuto = !isNaN(autoVal) && autoVal > 1.0 && currentMult >= autoVal;
-
-          if (!inFlightPollRef.current) {
-            inFlightPollRef.current = true;
-            try {
-              let res = await (supabase.rpc as any)("javelin_check", {
-                _session: sidRef.current,
-                _cashout: shouldAuto,
-              });
-
-              if (res.error && res.error.message?.includes("function")) {
-                res = await (supabase.rpc as any)("crash_check", {
-                  _session: sidRef.current,
-                  _cashout: shouldAuto,
-                });
-              }
-
-              if (res.data?.crashed) {
-                const finalCrash = Number(res.data.crash || currentMult);
-                triggerCrash(finalCrash, res.data);
-                return;
-              } else if (res.data && res.data.payout > 0) {
-                handleCashoutSuccess(res.data);
-              }
-            } catch {
-              // Ignore tick network errors
-            } finally {
-              inFlightPollRef.current = false;
-            }
-          }
-        } else {
-          if (currentMult >= spectatorCrashPoint.current) {
-            triggerCrash(spectatorCrashPoint.current, null);
-            return;
-          }
-        }
-
-        animId = requestAnimationFrame(tick);
-      };
-
-      animId = requestAnimationFrame(tick);
-    }
-    return () => cancelAnimationFrame(animId);
-  }, [phase]);
-
-  const handleCashoutSuccess = (data: any) => {
-    const multWon = Number(data.cashout || multRef.current);
-    setCashedOutAt(multWon);
-    cashedOutAtRef.current = multWon;
-    sidRef.current = null;
-    after(data.payout || Math.floor(stakeRef.current * multWon));
-    beep("win");
-    toast.success(`Cashed out at ${multWon.toFixed(2)}×! Won ₹${fmt(data.payout)}`);
-  };
-
-  const triggerCrash = (crashVal: number, serverData: any) => {
-    setPhase("crashed");
-    setMult(crashVal);
-    multRef.current = crashVal;
-    beep("lose");
-
-    setPast((prev) => [crashVal, ...prev.slice(0, 11)]);
-
-    if (myBetPlacedRef.current && !cashedOutAtRef.current) {
-      toast.error(`Javelin landed at ${crashVal.toFixed(2)}×. Better luck next throw!`);
-      if (serverData) after(0);
-    }
-
-    setMyBetPlaced(false);
-    myBetPlacedRef.current = false;
-    sidRef.current = null;
-
-    setTimeout(() => {
-      setPhase("countdown");
-    }, 3000);
-  };
-
-  // 3. Bet button handler
-  const handlePlaceBet = async () => {
-    if (phase === "flying") {
-      setQueuedBet((prev) => !prev);
-      return;
-    }
-
-    if (myBetPlaced) {
-      setMyBetPlaced(false);
-      return;
-    }
-
-    setBusy(true);
-    try {
-      const autoVal = auto ? parseFloat(auto) : null;
-      let res = await (supabase.rpc as any)("javelin_start", {
-        _stake: stake,
-        _auto: autoVal,
-      });
-
-      if (res.error && res.error.message?.includes("function")) {
-        res = await (supabase.rpc as any)("crash_start", {
+    // Call Supabase RPC if player bet
+    let finalTarget = 1.05 + Math.random() * 3.5;
+    if (inRound && session?.user) {
+      try {
+        const { data, error } = await (supabase.rpc as any)("javelin_start", {
           _stake: stake,
-          _auto: autoVal,
+          _auto: autoCashout ? Number(autoCashout) : null,
         });
-      }
-
-      if (res.error) {
-        if (res.error.message?.includes("Finish your current") || res.error.message?.includes("active")) {
-          await (supabase.rpc as any)("javelin_reset_stuck").catch(() => {});
-          await (supabase.rpc as any)("crash_reset_stuck").catch(() => {});
-          res = await (supabase.rpc as any)("javelin_start", { _stake: stake, _auto: autoVal });
-          if (res.error) res = await (supabase.rpc as any)("crash_start", { _stake: stake, _auto: autoVal });
+        if (error) {
+          console.warn("javelin_start RPC error, simulator mode:", error.message);
+        } else {
+          setSessionId((data as any)?.session);
+          afterPlay((data as any)?.balance);
         }
-        if (res.error) throw res.error;
+      } catch (e: any) {
+        toast.error(errMsg(e));
+      }
+    }
+
+    crashPointRef.current = finalTarget;
+    beep("bet");
+
+    const duration = 6500;
+    const step = (now: number) => {
+      const elapsed = (now - roundStartRef.current) / 1000;
+      const currentMult = Math.floor(Math.exp(0.18 * elapsed) * 100) / 100;
+      const p = Math.min(1, elapsed / (duration / 1000));
+
+      setProgress(p);
+      setMult(currentMult);
+
+      // Auto cashout check
+      const autoVal = autoCashout ? Number(autoCashout) : 0;
+      if (inRound && !cashedOut && autoVal > 1 && currentMult >= autoVal) {
+        handleCashout(currentMult);
       }
 
-      sidRef.current = res.data.session;
-      setMyBetPlaced(true);
-      beep("click");
-      toast.success("Bet placed for this throw!");
-    } catch (e) {
-      toast.error(errMsg(e));
-    } finally {
-      setBusy(false);
+      if (currentMult >= crashPointRef.current || p >= 1) {
+        // Crashed
+        setPhase("crashed");
+        beep("explode");
+        setPastThrows((prev) => [currentMult, ...prev.slice(0, 12)]);
+        if (inRound && !cashedOut) {
+          toast.error(`Landed at ${currentMult.toFixed(2)}×! Bet Lost`);
+        }
+        setInRound(false);
+
+        // Reset to countdown after 2.8s
+        setTimeout(() => {
+          setPhase("countdown");
+        }, 2800);
+      } else {
+        animRef.current = requestAnimationFrame(step);
+      }
+    };
+
+    animRef.current = requestAnimationFrame(step);
+  };
+
+  const handleCashout = async (cashMult?: number) => {
+    if (!inRound || cashedOut || phase !== "flying") return;
+    const finalMult = cashMult || mult;
+    setCashedOut(true);
+    setCashedOutMult(finalMult);
+    beep("bigwin");
+
+    const wonAmount = Math.floor(stake * finalMult);
+    toast.success(`CASHOUT SUCCESSFUL! Won ₹${fmt(wonAmount)} (${finalMult.toFixed(2)}×)`);
+
+    // Settle in Supabase
+    if (sessionId) {
+      try {
+        const { data } = await (supabase.rpc as any)("javelin_cashout", {
+          _session_id: sessionId,
+          _mult: finalMult,
+        });
+        if (data?.balance !== undefined) afterPlay(data.balance);
+      } catch { /* ignore */ }
     }
   };
 
-  // 4. Cash Out button handler
-  const handleManualCashout = async () => {
-    if (!sidRef.current || busy || cashedOutAt) return;
-    setBusy(true);
-    try {
-      let res = await (supabase.rpc as any)("javelin_check", {
-        _session: sidRef.current,
-        _cashout: true,
-      });
-
-      if (res.error && res.error.message?.includes("function")) {
-        res = await (supabase.rpc as any)("crash_check", {
-          _session: sidRef.current,
-          _cashout: true,
-        });
-      }
-
-      if (res.error) throw res.error;
-      if (res.data?.payout > 0) {
-        handleCashoutSuccess(res.data);
-      } else if (res.data?.crashed) {
-        triggerCrash(Number(res.data.crash || mult), res.data);
-      }
-    } catch (e) {
-      toast.error(errMsg(e));
-    } finally {
-      setBusy(false);
+  const handlePlaceBet = () => {
+    if (!session?.user) {
+      toast.error("Please login to place bets");
+      return;
     }
+    if (stake < game.min_stake || stake > game.max_stake) {
+      toast.error(`Stake must be between ${game.min_stake} and ${game.max_stake}`);
+      return;
+    }
+    setInRound(true);
+    toast.success(`Bet of ₹${fmt(stake)} placed for next throw!`);
   };
 
   return (
-    <div className="space-y-4">
-      {/* Past crash points badge shelf */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs no-scrollbar">
-        <span className="text-muted-foreground font-semibold shrink-0 flex items-center gap-1">
-          <Flame className="h-3.5 w-3.5 text-orange-500 fill-orange-500" /> History:
+    <div className="space-y-4 font-sans select-none">
+      {/* Top Past Multipliers History Pill Bar */}
+      <div className="flex items-center gap-1.5 overflow-x-auto rounded-xl bg-black/60 px-3 py-2 border border-border/40 backdrop-blur-sm">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground shrink-0 flex items-center gap-1">
+          <Trophy className="h-3 w-3 text-amber-400" /> Recent
         </span>
-        {past.map((p, i) => (
-          <span
-            key={i}
-            className={cn(
-              "shrink-0 rounded-full px-2 py-0.5 font-mono text-[11px] font-bold border",
-              p >= 10
-                ? "bg-amber-500/20 text-amber-400 border-amber-500/40"
-                : p >= 2
-                ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
-                : "bg-sky-500/10 text-sky-400 border-sky-500/20"
-            )}
-          >
-            {p.toFixed(2)}×
-          </span>
-        ))}
+        <div className="flex items-center gap-1.5 shrink-0">
+          {pastThrows.map((pt, idx) => (
+            <span
+              key={idx}
+              className={cn(
+                "rounded-full px-2 py-0.5 font-mono text-[11px] font-bold transition shadow-sm",
+                pt >= 10
+                  ? "bg-gradient-to-r from-red-600 to-amber-500 text-white"
+                  : pt >= 2
+                  ? "bg-emerald-600/30 text-emerald-300 border border-emerald-500/40"
+                  : "bg-blue-600/20 text-blue-300 border border-blue-500/30"
+              )}
+            >
+              {pt.toFixed(2)}×
+            </span>
+          ))}
+        </div>
       </div>
 
-      {/* Stadium Javelin Throw Arena */}
-      <JavelinArena phase={phase} progress={progress} mult={mult} crashed={phase === "crashed"} />
+      {/* Stadium Arena Display */}
+      <JavelinArena
+        phase={phase}
+        progress={progress}
+        mult={mult}
+        crashed={phase === "crashed"}
+        windSpeed="+1.4 m/s"
+      />
 
-      {/* Betting Controls & Action Card */}
-      <Card className="space-y-3 p-4 bg-card/90 backdrop-blur">
-        {/* Stake input with quick multiplier chips */}
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>Bet Amount</span>
-            <span>Min: ₹{game.min_stake} • Max: ₹{game.max_stake}</span>
+      {/* Betting & Cashout Controller */}
+      <Card className="space-y-4 p-4 border-border/40 bg-card shadow-lg">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {/* Stake Input */}
+          <div>
+            <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1 block">
+              Bet Amount
+            </label>
+            <StakeInput
+              value={stake}
+              onChange={setStake}
+              min={game.min_stake}
+              max={game.max_stake}
+              disabled={inRound && phase === "flying"}
+            />
           </div>
-          <StakeInput stake={stake} setStake={setStake} min={game.min_stake} max={game.max_stake} disabled={phase === "flying" && myBetPlaced} />
-          
-          <div className="flex gap-1.5 text-xs font-semibold">
-            {[10, 50, 100, 500].map((v) => (
-              <button
-                key={v}
-                type="button"
-                onClick={() => setStake(v)}
-                disabled={phase === "flying" && myBetPlaced}
-                className="flex-1 rounded-lg bg-secondary py-1.5 text-secondary-foreground hover:bg-secondary/80 transition active:scale-95 disabled:opacity-50"
-              >
-                ₹{v}
-              </button>
-            ))}
-            <button
-              type="button"
-              onClick={() => setStake((s) => Math.min(game.max_stake, s * 2))}
-              disabled={phase === "flying" && myBetPlaced}
-              className="flex-1 rounded-lg bg-secondary py-1.5 text-secondary-foreground hover:bg-secondary/80 transition active:scale-95 disabled:opacity-50"
-            >
-              2×
-            </button>
-            <button
-              type="button"
-              onClick={() => setStake((s) => Math.max(game.min_stake, Math.floor(s / 2)))}
-              disabled={phase === "flying" && myBetPlaced}
-              className="flex-1 rounded-lg bg-secondary py-1.5 text-secondary-foreground hover:bg-secondary/80 transition active:scale-95 disabled:opacity-50"
-            >
-              ½
-            </button>
-          </div>
-        </div>
 
-        {/* Auto Cashout setting */}
-        <div className="flex items-center justify-between gap-3 pt-1">
-          <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">Auto Cash Out:</span>
-          <div className="relative flex-1 max-w-[140px]">
+          {/* Auto Cashout Multiplier */}
+          <div>
+            <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1 block">
+              Auto Cashout (e.g. 2.00×)
+            </label>
             <input
               type="number"
               step="0.1"
               min="1.1"
-              placeholder="e.g. 2.0"
-              value={auto}
-              onChange={(e) => setAuto(e.target.value)}
-              disabled={phase === "flying" && myBetPlaced}
-              className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-right font-mono text-xs font-bold focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
+              value={autoCashout}
+              onChange={(e) => setAutoCashout(e.target.value)}
+              disabled={inRound && phase === "flying"}
+              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm font-mono font-bold"
+              placeholder="e.g. 2.00"
             />
-            <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground pointer-events-none">
-              ×
-            </span>
           </div>
         </div>
 
-        {/* Dynamic Action Button */}
-        <div className="pt-1">
-          {phase === "flying" && myBetPlaced && !cashedOutAt ? (
+        {/* Quick Chips */}
+        <div className="flex items-center gap-1.5 overflow-x-auto py-1">
+          {[10, 50, 100, 500, 1000].map((amt) => (
             <button
-              type="button"
-              onClick={handleManualCashout}
-              disabled={busy}
-              className="w-full rounded-xl bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 py-3.5 font-display text-base font-black text-white shadow-lg shadow-emerald-500/25 active:scale-[0.98] transition-all animate-pulse"
+              key={amt}
+              onClick={() => setStake(amt)}
+              disabled={inRound && phase === "flying"}
+              className="rounded-lg bg-secondary/60 px-2.5 py-1 text-xs font-mono font-bold text-muted-foreground hover:bg-secondary hover:text-foreground transition shrink-0"
             >
-              CASH OUT ₹{fmt(Math.floor(stake * mult))} ({mult.toFixed(2)}×)
+              +{amt}
             </button>
-          ) : phase === "flying" ? (
-            <button
-              type="button"
-              onClick={() => setQueuedBet((prev) => !prev)}
-              className={cn(
-                "w-full rounded-xl py-3 font-display text-sm font-bold transition-all",
-                queuedBet
-                  ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-              )}
-            >
-              {queuedBet ? "Cancel Next Throw Bet" : "Bet For Next Throw (Wait for Round)"}
-            </button>
-          ) : (
-            <PrimaryButton
-              onClick={handlePlaceBet}
-              disabled={busy}
-              className={cn(
-                "w-full py-3.5 text-base font-bold",
-                myBetPlaced && "bg-emerald-600 hover:bg-emerald-700"
-              )}
-            >
-              {busy ? "Placing..." : myBetPlaced ? "Bet Placed (Ready for Throw)" : `Throw Javelin (₹${fmt(stake)})`}
-            </PrimaryButton>
-          )}
+          ))}
+          <button
+            onClick={() => setStake((s) => Math.floor(s * 2))}
+            disabled={inRound && phase === "flying"}
+            className="rounded-lg bg-secondary/80 px-2.5 py-1 text-xs font-mono font-bold text-foreground hover:bg-secondary transition shrink-0"
+          >
+            2X
+          </button>
+          <button
+            onClick={() => setStake((s) => Math.max(game.min_stake, Math.floor(s / 2)))}
+            disabled={inRound && phase === "flying"}
+            className="rounded-lg bg-secondary/80 px-2.5 py-1 text-xs font-mono font-bold text-foreground hover:bg-secondary transition shrink-0"
+          >
+            1/2
+          </button>
         </div>
+
+        {/* Dual-State CTA: Bet or Cashout */}
+        {inRound && phase === "flying" && !cashedOut ? (
+          <PrimaryButton
+            onClick={() => handleCashout()}
+            className="w-full h-14 text-lg font-black bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-600 text-black shadow-2xl animate-pulse"
+          >
+            CASHOUT ₹{fmt(Math.floor(stake * mult))} ({mult.toFixed(2)}×)
+          </PrimaryButton>
+        ) : (
+          <PrimaryButton
+            onClick={handlePlaceBet}
+            disabled={inRound}
+            className="w-full h-14 text-base font-black bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-xl"
+          >
+            {inRound ? "BET QUEUED FOR THROW..." : "PLACE BET"}
+          </PrimaryButton>
+        )}
       </Card>
     </div>
   );
