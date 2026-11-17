@@ -150,6 +150,9 @@ export function MotoRacingGame({ game }: { game: GameRow }) {
   const [winner, setWinner] = useState<number | null>(null);
   const [podium, setPodium] = useState<number[]>([]);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
+  const [raceSector, setRaceSector] = useState<string>("GRID");
+  const [commentary, setCommentary] = useState<string>("ENGINES IDLING ON STARTING GRID");
+  const [nextRaceCountdown, setNextRaceCountdown] = useState<number | null>(null);
 
   const animRef = useRef<number | null>(null);
 
@@ -251,20 +254,36 @@ export function MotoRacingGame({ game }: { game: GameRow }) {
     });
 
     const startTime = performance.now();
-    const duration = 5200; // 5.2 seconds dynamic race duration
+    const duration = 11200; // 11.2 seconds complete Grand Prix race
 
     const step = (now: number) => {
       const t = Math.min(1, (now - startTime) / duration);
       
+      // Update Race Sector & Live TV Commentary
+      if (t < 0.25) {
+        setRaceSector("SECTOR 1 · TURN 1 & 2 CHICANE");
+        setCommentary(`LIGHTS OUT! Bike #${finishOrder[0]} leads the pack into Turn 1!`);
+      } else if (t < 0.55) {
+        setRaceSector("SECTOR 2 · HIGH SPEED BACK STRAIGHTAWAY");
+        setCommentary(`SLIPSTREAM BATTLE! Speeds exceeding 330 km/h with overtakes!`);
+      } else if (t < 0.82) {
+        setRaceSector("SECTOR 3 · HAIRPIN APEX BRAKING ZONE");
+        setCommentary(`DRAMA AT THE APEX! Knee sliders scraping the ripple curbs!`);
+      } else {
+        setRaceSector("FINAL SECTOR · SPRINT TO THE CHECKERED FLAG");
+        setCommentary(`FULL THROTTLE DRAG RACE! Bike #${finalWinner} charging to victory!`);
+      }
+
       const current = speeds.map((speed, idx) => {
-        // dynamic overtaking jitter
-        const jitter = Math.sin(t * 18 + idx * 1.5) * 0.04 * (1 - t);
+        // dynamic overtaking jitter during the race
+        const jitter = Math.sin(t * 22 + idx * 1.8) * 0.05 * (1 - t * 0.95);
         return Math.min(100, Math.max(0, (t * speed + jitter) * 100));
       });
 
       const currentSpeeds = current.map((p, idx) => {
-        const base = 280 + Math.sin(t * 10 + idx) * 35;
-        return Math.floor(base);
+        const base = t < 0.25 ? 240 : t < 0.55 ? 335 : t < 0.82 ? 210 : 310;
+        const variation = Math.sin(t * 12 + idx) * 25;
+        return Math.floor(base + variation);
       });
 
       const sorted = BIKES
@@ -280,6 +299,8 @@ export function MotoRacingGame({ game }: { game: GameRow }) {
         animRef.current = requestAnimationFrame(step);
       } else {
         setRacing(false);
+        setRaceSector("CHECKERED FLAG 🏁");
+        setCommentary(`CHECKERED FLAG! Bike #${finalWinner} takes Grand Prix victory!`);
         setWinner(finalWinner);
         setPodium(finishOrder.slice(0, 3));
         const won = Boolean(resultData.win);
@@ -303,6 +324,21 @@ export function MotoRacingGame({ game }: { game: GameRow }) {
         });
 
         afterPlay(resultData?.balance);
+
+        // 10-Second Countdown to Next Race
+        setNextRaceCountdown(10);
+        const countdownTimer = setInterval(() => {
+          setNextRaceCountdown((prev: number | null) => {
+            if (prev === null || prev <= 1) {
+              clearInterval(countdownTimer);
+              setWinner(null);
+              setCommentary("BETTING OPEN FOR NEXT GRAND PRIX");
+              setRaceSector("GRID");
+              return null;
+            }
+            return prev - 1;
+          });
+        }, 1000);
       }
     };
 
@@ -346,6 +382,24 @@ export function MotoRacingGame({ game }: { game: GameRow }) {
               );
             })}
           </div>
+        </div>
+
+        {/* Live TV Broadcast Commentary Ticker */}
+        <div className="bg-gradient-to-r from-red-950/80 via-black to-zinc-950 px-3.5 py-1.5 border-b border-white/10 flex items-center justify-between text-xs">
+          <div className="flex items-center gap-2 overflow-hidden">
+            <span className="text-[10px] font-black uppercase tracking-widest text-red-400 shrink-0">
+              RADIO:
+            </span>
+            <span className="font-mono text-zinc-200 truncate">
+              {commentary}
+            </span>
+          </div>
+          {nextRaceCountdown !== null && (
+            <div className="flex items-center gap-1.5 shrink-0 bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full border border-amber-500/40 font-mono text-[11px] font-black">
+              <span>NEXT RACE IN:</span>
+              <span>{nextRaceCountdown}s</span>
+            </div>
+          )}
         </div>
 
         {/* The 8-Lane Asphalt Racetrack */}
