@@ -9,6 +9,7 @@ import { FortuneTigerGame } from "@/components/games/fortune-tiger";
 import { CrashGame, MinesGame, ChickenGame } from "@/components/games/session-games";
 import { DiceGame, LimboGame, PlinkoGame, DragonTigerGame } from "@/components/games/instant-games";
 import { FortuneGemsGame } from "@/components/games/fortune-gems";
+import { JavelinGame } from "@/components/games/javelin";
 import type { GameRow } from "@/components/games/types";
 
 export const Route = createFileRoute("/game/$slug")({
@@ -26,9 +27,10 @@ export const Route = createFileRoute("/game/$slug")({
 });
 
 const MAP: Record<string, (p: { game: GameRow }) => React.ReactNode> = {
-"fortune-tiger": FortuneTigerGame,
+  "fortune-tiger": FortuneTigerGame,
   wingo: WingoGame, trx: WingoGame, color: WingoGame,
   aviator: CrashGame, mines: MinesGame, chicken: ChickenGame,
+  javelin: JavelinGame,
   "fortune-gems": FortuneGemsGame,
   dice: DiceGame, limbo: LimboGame, plinko: PlinkoGame, "dragon-tiger": DragonTigerGame,
 };
