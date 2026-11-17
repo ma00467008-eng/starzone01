@@ -356,20 +356,25 @@ export function WingoGame({ game }: { game: GameRow }) {
     refetchInterval: remain <= 3 ? 1000 : 4000,
   });
 
-  // Accumulate up to 50 unique results
+  // Accumulate up to 50 unique results for the selected timeline
   useEffect(() => {
     if (feedItems && feedItems.length > 0) {
       setAccumulatedHist((prev) => {
+        const expectedCode = MODE_CODES[dur];
         const map = new Map<string, Hist>();
-        feedItems.forEach((item) => map.set(item.period, item));
-        prev.forEach((item) => {
-          if (!map.has(item.period)) map.set(item.period, item);
-        });
+        feedItems
+          .filter((item) => !expectedCode || item.period.includes(expectedCode))
+          .forEach((item) => map.set(item.period, item));
+        prev
+          .filter((item) => !expectedCode || item.period.includes(expectedCode))
+          .forEach((item) => {
+            if (!map.has(item.period)) map.set(item.period, item);
+          });
         const merged = Array.from(map.values()).sort((a, b) => b.period.localeCompare(a.period));
         return merged.slice(0, 50);
       });
     }
-  }, [feedItems]);
+  }, [feedItems, dur]);
 
   const pageSize = 10;
   const totalPages = Math.max(1, Math.min(5, Math.ceil(accumulatedHist.length / pageSize)));
@@ -392,9 +397,9 @@ export function WingoGame({ game }: { game: GameRow }) {
     return formatGlobalPeriod(period, dur);
   }, [latestHistPeriod, period, dur]);
 
-    // User Bets History
+  // User Bets History (filtered to current selected timeline)
   const { data: myBets } = useQuery({
-    queryKey: ["wingo-bets", game.slug, session?.user?.id],
+    queryKey: ["wingo-bets", game.slug, dur, session?.user?.id],
     enabled: !!session?.user?.id,
     queryFn: async () =>
       session?.user?.id
@@ -403,6 +408,7 @@ export function WingoGame({ game }: { game: GameRow }) {
               .from("wingo_bets")
               .select("*")
               .eq("game", game.slug)
+              .eq("duration", dur)
               .eq("user_id", session.user.id)
               .order("created_at", { ascending: false })
               .limit(30)
