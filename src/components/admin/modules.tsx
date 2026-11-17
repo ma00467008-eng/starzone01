@@ -163,7 +163,6 @@ function useDraft(v: Row | undefined) {
   useEffect(() => { if (v) setD(v); }, [v]);
   return [d, (p: Row) => setD((o) => ({ ...o, ...p }))] as const;
 }
-
 /* ---------------- Coin deductions ---------------- */
 function DeductionsPanel() {
   const [filter, setFilter] = useState("pending");
