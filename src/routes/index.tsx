@@ -71,7 +71,7 @@ function Home() {
       return [...new Set((data ?? []).map((r) => r.game))];
     },
   });
-  const all = (games ?? []).filter((g) => g.slug !== "trx");
+  const all = (games ?? []);
   const featured = all.filter((g) => g.featured);
   const popular = all.filter((g) => g.badge === "HOT");
   const recentGames = (recent ?? []).map((s) => all.find((g) => g.slug === s)).filter(Boolean) as GameRow[];
