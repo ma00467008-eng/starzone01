@@ -629,6 +629,53 @@ export function CrashGame({ game }: { game: GameRow }) {
    2. Mines Game (Faithfully preserved)
    ========================================================================= */
 
+
+function RealisticEmeraldGem() {
+  return (
+    <svg viewBox="0 0 60 60" className="h-7 w-7 sm:h-8 sm:w-8 drop-shadow-[0_0_12px_rgba(34,197,94,0.9)] animate-pulse" fill="none">
+      <defs>
+        <linearGradient id="gemFacetGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#86efac" />
+          <stop offset="35%" stopColor="#22c55e" />
+          <stop offset="75%" stopColor="#15803d" />
+          <stop offset="100%" stopColor="#052e16" />
+        </linearGradient>
+      </defs>
+      <polygon points="30,4 52,18 42,54 18,54 8,18" fill="url(#gemFacetGrad)" stroke="#4ade80" strokeWidth="1.2" />
+      <polygon points="30,4 40,22 20,22" fill="#bbf7d0" fillOpacity="0.85" />
+      <polygon points="8,18 20,22 18,54" fill="#16a34a" />
+      <polygon points="52,18 40,22 42,54" fill="#15803d" />
+      <polygon points="20,22 40,22 30,46" fill="#22c55e" />
+      <polygon points="30,2 32,7 37,7 33,10 35,15 30,12 25,15 27,10 23,7 28,7" fill="#ffffff" />
+    </svg>
+  );
+}
+
+function RealisticNavalMine({ hit }: { hit?: boolean }) {
+  return (
+    <svg viewBox="0 0 60 60" className={cn("h-7 w-7 sm:h-8 sm:w-8 drop-shadow-[0_4px_10px_rgba(0,0,0,0.8)]", hit && "animate-shake drop-shadow-[0_0_15px_rgba(239,68,68,0.95)]")} fill="none">
+      <defs>
+        <radialGradient id="mineMetalGrad" cx="35%" cy="35%" r="65%">
+          <stop offset="0%" stopColor="#64748b" />
+          <stop offset="60%" stopColor="#1e293b" />
+          <stop offset="100%" stopColor="#020617" />
+        </radialGradient>
+      </defs>
+      <line x1="30" y1="5" x2="30" y2="18" stroke="#334155" strokeWidth="4" strokeLinecap="round" />
+      <line x1="30" y1="42" x2="30" y2="55" stroke="#334155" strokeWidth="4" strokeLinecap="round" />
+      <line x1="5" y1="30" x2="18" y2="30" stroke="#334155" strokeWidth="4" strokeLinecap="round" />
+      <line x1="42" y1="30" x2="55" y2="30" stroke="#334155" strokeWidth="4" strokeLinecap="round" />
+      <line x1="12" y1="12" x2="22" y2="22" stroke="#334155" strokeWidth="3.5" strokeLinecap="round" />
+      <line x1="48" y1="12" x2="38" y2="22" stroke="#334155" strokeWidth="3.5" strokeLinecap="round" />
+      <line x1="12" y1="48" x2="22" y2="38" stroke="#334155" strokeWidth="3.5" strokeLinecap="round" />
+      <line x1="48" y1="48" x2="38" y2="38" stroke="#334155" strokeWidth="3.5" strokeLinecap="round" />
+      <circle cx="30" cy="30" r="18" fill="url(#mineMetalGrad)" stroke="#475569" strokeWidth="1.5" />
+      <circle cx="30" cy="30" r="4.5" fill={hit ? "#ef4444" : "#dc2626"} stroke="#f87171" strokeWidth="1" className="animate-ping" />
+      <circle cx="30" cy="30" r="2.5" fill="#ffffff" />
+    </svg>
+  );
+}
+
 export function MinesGame({ game }: { game: GameRow }) {
   const { t } = useApp();
   const after = useAfterPlay(game.slug);
@@ -754,15 +801,25 @@ export function MinesGame({ game }: { game: GameRow }) {
   };
 
   return (
-    <div className="space-y-4">
-      {active && (
-        <div className="flex items-center justify-between rounded-xl bg-card px-4 py-2 border border-border/40">
-          <span className="text-xs text-muted-foreground">Current Multiplier</span>
-          <span className="font-display text-lg font-bold text-gold">{mult.toFixed(2)}×</span>
+    <div className="space-y-4 font-sans select-none">
+      {/* Live Status Ribbon */}
+      <div className="flex items-center justify-between rounded-xl bg-black/60 px-4 py-2.5 border border-border/40 backdrop-blur-md">
+        <div className="flex items-center gap-2 text-xs">
+          <span className="text-muted-foreground font-semibold">Mines:</span>
+          <span className="font-mono font-bold text-red-400">{mines}</span>
+          <span className="text-muted-foreground font-semibold ml-2">Gems:</span>
+          <span className="font-mono font-bold text-emerald-400">{25 - mines}</span>
         </div>
-      )}
+        {active && (
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-muted-foreground font-medium">Multiplier:</span>
+            <span className="font-mono text-base font-black text-amber-400">{mult.toFixed(2)}×</span>
+          </div>
+        )}
+      </div>
 
-      <Card className="grid grid-cols-5 gap-2 p-4">
+      {/* 3D Tactile Casino Tiles Grid (5x5) */}
+      <Card className="grid grid-cols-5 gap-2 sm:gap-3 p-3 sm:p-4 bg-gradient-to-b from-[#111317] via-[#0f1013] to-[#0a0a0d] border border-white/10 rounded-2xl shadow-2xl">
         {Array.from({ length: 25 }, (_, i) => {
           const rev = revealed.includes(i);
           const isHit = hit === i;
@@ -774,57 +831,104 @@ export function MinesGame({ game }: { game: GameRow }) {
               onClick={() => pick(i)}
               disabled={!active || rev || busy}
               className={cn(
-                "flex aspect-square items-center justify-center rounded-xl border border-border/60 font-bold transition active:scale-95 disabled:cursor-not-allowed shadow-sm",
+                "relative flex aspect-square items-center justify-center rounded-xl font-bold transition-all duration-200 active:scale-95 disabled:cursor-not-allowed",
                 rev
                   ? isHit
-                    ? "bg-destructive text-destructive-foreground animate-shake"
-                    : "bg-success/20 text-success border-success/40"
+                    ? "bg-gradient-to-b from-red-950 to-black border-2 border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.8)] animate-shake"
+                    : "bg-gradient-to-b from-emerald-950/80 to-zinc-950 border-2 border-emerald-500/80 shadow-[0_0_12px_rgba(34,197,94,0.6)]"
                   : isMine
-                  ? "bg-destructive/30 text-destructive"
-                  : "bg-secondary hover:bg-secondary/80"
+                  ? "bg-red-950/40 border border-red-500/40"
+                  : "bg-gradient-to-b from-[#242731] via-[#1c1f26] to-[#14161c] border border-white/15 hover:border-amber-400/50 hover:from-[#2c303c] shadow-[0_4px_8px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(255,255,255,0.15)]"
               )}
             >
               {rev ? (
-                isHit ? <Bomb className="h-5 w-5" /> : <Gem className="h-5 w-5" />
+                isHit ? <RealisticNavalMine hit /> : <RealisticEmeraldGem />
               ) : isMine ? (
-                <Bomb className="h-5 w-5 opacity-70" />
-              ) : null}
+                <div className="opacity-60"><RealisticNavalMine /></div>
+              ) : (
+                <div className="h-2 w-2 rounded-full bg-white/10" />
+              )}
             </button>
           );
         })}
       </Card>
 
-      <Card className="space-y-3 p-4">
-        <StakeInput
-          value={stake}
-          onChange={setStake}
-          min={game.min_stake}
-          max={game.max_stake}
-          disabled={active}
-        />
-        <div className="flex items-center gap-2">
-          <label className="text-xs text-muted-foreground">Mines count</label>
-          <select
-            value={mines}
-            onChange={(e) => setMines(Number(e.target.value))}
+      {/* Betting & Cashout Panel */}
+      <Card className="space-y-4 p-4 border-border/40 bg-card shadow-lg">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+          <StakeInput
+            value={stake}
+            onChange={setStake}
+            min={game.min_stake}
+            max={game.max_stake}
             disabled={active}
-            className="h-9 rounded-lg border border-input bg-background px-3 text-sm font-bold"
-          >
-            {[1, 2, 3, 5, 10, 15, 20, 24].map((m) => (
-              <option key={m} value={m}>
-                {m} {m === 1 ? "mine" : "mines"}
-              </option>
-            ))}
-          </select>
+          />
+          <div>
+            <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground block mb-1">
+              Select Mines Count
+            </label>
+            <select
+              value={mines}
+              onChange={(e) => setMines(Number(e.target.value))}
+              disabled={active}
+              className="h-10 w-full rounded-xl border border-input bg-background px-3 text-sm font-bold font-mono"
+            >
+              {[1, 2, 3, 5, 10, 15, 20, 24].map((m) => (
+                <option key={m} value={m}>
+                  {m} {m === 1 ? "Mine" : "Mines"} ({(25 - m)} Safe Gems)
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
+        {/* Quick Stake Chips */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+          {[10, 50, 100, 500, 1000].map((amt) => (
+            <button
+              key={amt}
+              type="button"
+              disabled={active}
+              onClick={() => setStake(amt)}
+              className="rounded-lg bg-secondary/80 px-2.5 py-1 text-xs font-mono font-bold hover:bg-secondary text-foreground transition active:scale-95 disabled:opacity-40 shrink-0"
+            >
+              +{amt}
+            </button>
+          ))}
+          <button
+            type="button"
+            disabled={active}
+            onClick={() => setStake((s) => Math.floor(s * 2))}
+            className="rounded-lg bg-secondary/80 px-2.5 py-1 text-xs font-mono font-bold hover:bg-secondary text-foreground transition active:scale-95 disabled:opacity-40 shrink-0"
+          >
+            2X
+          </button>
+          <button
+            type="button"
+            disabled={active}
+            onClick={() => setStake((s) => Math.max(game.min_stake, Math.floor(s / 2)))}
+            className="rounded-lg bg-secondary/80 px-2.5 py-1 text-xs font-mono font-bold hover:bg-secondary text-foreground transition active:scale-95 disabled:opacity-40 shrink-0"
+          >
+            1/2
+          </button>
+        </div>
+
+        {/* CTA: Place Bet or Cashout */}
         {active ? (
-          <PrimaryButton onClick={cash} disabled={busy || revealed.length === 0} variant="gold">
-            {t("game.cash_out")} {payout > 0 && `(${fmt(payout)})`}
+          <PrimaryButton
+            onClick={cash}
+            disabled={busy || revealed.length === 0}
+            className="w-full h-14 text-base font-black bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-xl animate-pulse uppercase tracking-wider"
+          >
+            CASHOUT ₹{fmt(payout > 0 ? payout : Math.floor(stake * mult))} ({mult.toFixed(2)}×)
           </PrimaryButton>
         ) : (
-          <PrimaryButton onClick={start} disabled={busy}>
-            {t("game.bet")}
+          <PrimaryButton
+            onClick={start}
+            disabled={busy}
+            className="w-full h-14 text-base font-black bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-600 text-black shadow-xl uppercase tracking-wider"
+          >
+            START MINES GAME
           </PrimaryButton>
         )}
       </Card>
@@ -843,7 +947,7 @@ const CHICKEN_DIFFS = [
   { id: "hardcore", label: "Daredevil", multText: "2.80x - 15x" },
 ] as const;
 
-// Realistic White Chicken SVG with Cartoon Crushed State, Flying Feathers & Dizzy Stars
+// Realistic Poultry Rooster SVG with Automotive Collision State
 function RealisticWhiteChicken({
   crushed,
   running,
@@ -856,63 +960,27 @@ function RealisticWhiteChicken({
   if (crushed) {
     return (
       <div className="relative flex flex-col items-center justify-center animate-shake z-30 select-none">
-        {/* Flying cartoon feathers bursting outwards */}
-        <div className="absolute inset-0 pointer-events-none">
-          <span className="absolute -top-10 -left-6 text-xl rotate-45 animate-bounce">🪶</span>
-          <span className="absolute -top-8 right-6 text-lg -rotate-45 animate-pulse">🪶</span>
-          <span className="absolute -bottom-6 -left-8 text-base rotate-12">🪶</span>
-          <span className="absolute -bottom-8 right-8 text-xl -rotate-12 animate-bounce">🪶</span>
-          <span className="absolute top-2 -right-10 text-lg rotate-90">🪶</span>
-        </div>
-
-        {/* Orbiting dizzy cartoon stars */}
-        <div className="absolute -top-12 flex items-center gap-1 animate-pulse">
-          <span className="text-xl animate-spin">💫</span>
-          <span className="text-xl text-yellow-400">⭐</span>
-          <span className="text-xl animate-spin">💫</span>
-        </div>
-
         {/* Dark rubber tire skid mark across the pavement */}
         <div className="relative flex items-center justify-center">
-          <div className="absolute -left-12 h-4 w-28 bg-black/90 rounded-full blur-[1px] -rotate-6" />
-          <div className="absolute -right-12 h-4 w-28 bg-black/90 rounded-full blur-[1px] -rotate-6" />
+          <div className="absolute -left-14 h-3 w-32 bg-black/90 rounded-full blur-[1px] -rotate-6" />
+          <div className="absolute -right-14 h-3 w-32 bg-black/90 rounded-full blur-[1px] -rotate-6" />
 
-          {/* Squashed Flat Pancake Chicken SVG */}
-          <svg viewBox="0 0 120 60" className="h-16 w-32 drop-shadow-[0_4px_12px_rgba(0,0,0,0.8)] relative z-10" fill="none">
-            {/* Flat splat body puddle */}
-            <ellipse cx="60" cy="35" rx="52" ry="18" fill="#F8FAFC" stroke="#94A3B8" strokeWidth="2.5" />
-            <ellipse cx="60" cy="35" rx="46" ry="14" fill="#FFFFFF" />
-
-            {/* Splayed out flat wings */}
-            <path d="M12 36 C 8 26, 26 22, 34 30 Z" fill="#E2E8F0" stroke="#94A3B8" strokeWidth="2" />
-            <path d="M108 36 C 112 26, 94 22, 86 30 Z" fill="#E2E8F0" stroke="#94A3B8" strokeWidth="2" />
-
-            {/* Squished Rooster Comb & Wattle */}
-            <path d="M50 18 C 45 10, 55 8, 58 14 C 62 8, 70 10, 68 18 Z" fill="#DC2626" stroke="#991B1B" strokeWidth="1.5" />
-            <ellipse cx="78" cy="36" rx="4" ry="7" fill="#DC2626" />
-
-            {/* Squished Beak poking out flat */}
-            <polygon points="76,30 92,34 76,38" fill="#F59E0B" stroke="#D97706" strokeWidth="1.5" />
-
-            {/* Cartoon X_X Dizzy Eyes */}
-            <circle cx="50" cy="32" r="7" fill="#FFFFFF" stroke="#0F172A" strokeWidth="1.5" />
-            <path d="M46 28 L 54 36 M54 28 L 46 36" stroke="#0F172A" strokeWidth="2.2" strokeLinecap="round" />
-            <circle cx="66" cy="32" r="7" fill="#FFFFFF" stroke="#0F172A" strokeWidth="1.5" />
-            <path d="M62 28 L 70 36 M70 28 L 62 36" stroke="#0F172A" strokeWidth="2.2" strokeLinecap="round" />
-
-            {/* Flat feet sticking out */}
-            <path d="M30 45 L 20 54 M30 45 L 26 56 M30 45 L 34 55" stroke="#F59E0B" strokeWidth="3" strokeLinecap="round" />
-            <path d="M90 45 L 100 54 M90 45 L 94 56 M90 45 L 86 55" stroke="#F59E0B" strokeWidth="3" strokeLinecap="round" />
-          </svg>
+          {/* Realistic Collision Hazard Alert */}
+          <div className="relative z-10 flex flex-col items-center">
+            <svg viewBox="0 0 100 60" className="h-14 w-28 drop-shadow-[0_4px_12px_rgba(0,0,0,0.8)]" fill="none">
+              <ellipse cx="50" cy="35" rx="42" ry="14" fill="#e2e8f0" stroke="#64748b" strokeWidth="2" />
+              <path d="M12 36 L24 24 M88 36 L76 24" stroke="#94a3b8" strokeWidth="2" />
+              <circle cx="50" cy="30" r="12" fill="#cbd5e1" />
+              <path d="M42 22 L58 38 M58 22 L42 38" stroke="#ef4444" strokeWidth="3" strokeLinecap="round" />
+            </svg>
+          </div>
         </div>
 
-        {/* Comic SPLAT impact badge */}
-        <div className="mt-2 flex items-center gap-1.5 rounded-full bg-gradient-to-r from-red-600 via-rose-600 to-amber-600 px-3 py-1 border-2 border-white/60 shadow-2xl animate-bounce">
-          <span className="text-sm">💥</span>
-          <span className="text-[11px] font-black uppercase tracking-widest text-white drop-shadow">
-            SPLAT! CRUSHED!
+        {/* Hazard Impact Alert Badge */}
+        <div className="mt-2 flex items-center gap-1.5 rounded-full bg-red-600 px-3.5 py-1 border border-red-400 shadow-2xl animate-pulse">
+          <span className="text-[10px] font-black uppercase tracking-widest text-white drop-shadow">
+            VEHICLE IMPACT · HAZARD ALERT
           </span>
-          <span className="text-sm">🚗💨</span>
         </div>
       </div>
     );
@@ -921,158 +989,62 @@ function RealisticWhiteChicken({
   return (
     <div
       className={cn(
-        "relative flex flex-col items-center justify-center transition-all duration-300 z-20",
-        running ? "rotate-[14deg] translate-y-[-2px]" : "rotate-0",
-        hopping ? "-translate-y-4 scale-110" : "translate-y-0 scale-100"
+        "relative flex flex-col items-center justify-center transition-all duration-300 z-20 select-none",
+        running ? "rotate-[10deg] translate-y-[-2px]" : "rotate-0",
+        hopping ? "-translate-y-4 scale-105" : "translate-y-0 scale-100"
       )}
     >
-      {/* Cartoon sprint dust cloud behind chicken feet when running */}
-      {running && (
-        <div className="absolute -left-5 bottom-1 pointer-events-none animate-pulse">
-          <span className="text-base select-none">💨</span>
-        </div>
-      )}
-
       <svg
         viewBox="0 0 100 100"
-        className="h-18 w-18 sm:h-22 sm:w-22 md:h-24 md:w-24 drop-shadow-[0_8px_18px_rgba(0,0,0,0.65)]"
+        className="h-18 w-18 sm:h-22 sm:w-22 md:h-24 md:w-24 drop-shadow-[0_8px_18px_rgba(0,0,0,0.7)]"
         fill="none"
       >
-        {/* Ground soft shadow */}
-        <ellipse cx="50" cy="90" rx="26" ry="6" fill="#000000" opacity="0.45" />
+        {/* Ground shadow */}
+        <ellipse cx="50" cy="90" rx="26" ry="6" fill="#000000" opacity="0.5" />
 
-        {/* Orange Claws/Feet: Animated stride position when running */}
+        {/* Claws & Legs */}
         <path
-          d={
-            running
-              ? "M36 74 L 20 86 M36 74 L 26 89 M36 74 L 34 85"
-              : "M36 74 L 28 90 M36 74 L 36 91 M36 74 L 44 90"
-          }
-          stroke="#F59E0B"
-          strokeWidth="4"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        <path
-          d={
-            running
-              ? "M64 74 L 72 88 M64 74 L 80 84 M64 74 L 86 78"
-              : "M64 74 L 56 90 M64 74 L 64 91 M64 74 L 72 90"
-          }
-          stroke="#F59E0B"
-          strokeWidth="4"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-
-        {/* Tail Feathers flaring up at the back */}
-        <path
-          d="M22 56 C 10 46, 8 30, 20 24 C 23 36, 27 44, 34 50 Z"
-          fill="#E2E8F0"
-          stroke="#CBD5E1"
-          strokeWidth="2.5"
-        />
-        <path
-          d="M18 50 C 6 38, 8 20, 18 16 C 21 28, 25 38, 30 44 Z"
-          fill="#FFFFFF"
-          stroke="#CBD5E1"
-          strokeWidth="2.5"
-        />
-        <path
-          d="M25 60 C 14 54, 12 42, 22 36 C 24 44, 28 50, 32 54 Z"
-          fill="#F1F5F9"
-          stroke="#CBD5E1"
-          strokeWidth="2"
-        />
-
-        {/* Main Round Plump White Body */}
-        <ellipse
-          cx="50"
-          cy="58"
-          rx="32"
-          ry="26"
-          fill="#FFFFFF"
-          stroke="#CBD5E1"
-          strokeWidth="3"
-        />
-        {/* Underbelly shadow arc for 3D depth */}
-        <path
-          d="M24 64 C 32 80, 68 80, 76 64 C 68 76, 32 76, 24 64 Z"
-          fill="#E2E8F0"
-          opacity="0.75"
-        />
-
-        {/* Wing Layer with feather textures */}
-        <path
-          d="M34 54 C 38 42, 60 42, 66 58 C 58 72, 38 70, 34 54 Z"
-          fill="#F8FAFC"
-          stroke="#94A3B8"
-          strokeWidth="2.5"
-        />
-        <path
-          d="M42 58 C 46 50, 56 50, 60 62"
-          stroke="#CBD5E1"
-          strokeWidth="2.5"
+          d={running ? "M36 74 L 22 88 M36 74 L 28 90 M36 74 L 35 86" : "M36 74 L 28 90 M36 74 L 36 91 M36 74 L 44 90"}
+          stroke="#d97706"
+          strokeWidth="3.5"
           strokeLinecap="round"
         />
         <path
-          d="M48 64 C 52 58, 58 58, 62 66"
-          stroke="#CBD5E1"
-          strokeWidth="2"
+          d={running ? "M64 74 L 72 88 M64 74 L 80 85 M64 74 L 85 80" : "M64 74 L 56 90 M64 74 L 64 91 M64 74 L 72 90"}
+          stroke="#d97706"
+          strokeWidth="3.5"
           strokeLinecap="round"
         />
+
+        {/* Tail Feathers with natural sheen */}
+        <path d="M22 56 C 10 46, 8 28, 20 22 C 23 35, 27 44, 34 50 Z" fill="#334155" stroke="#1e293b" strokeWidth="2" />
+        <path d="M18 50 C 6 38, 8 18, 18 14 C 21 27, 25 38, 30 44 Z" fill="#0f172a" stroke="#1e293b" strokeWidth="2" />
+        <path d="M25 60 C 14 54, 12 40, 22 34 C 24 43, 28 50, 32 54 Z" fill="#e2e8f0" stroke="#cbd5e1" strokeWidth="1.5" />
+
+        {/* Realistic Plump Body */}
+        <ellipse cx="50" cy="58" rx="32" ry="26" fill="#f8fafc" stroke="#cbd5e1" strokeWidth="2.5" />
+        <path d="M24 64 C 32 80, 68 80, 76 64 C 68 76, 32 76, 24 64 Z" fill="#e2e8f0" opacity="0.8" />
+
+        {/* Wing Layer */}
+        <path d="M34 54 C 38 42, 60 42, 66 58 C 58 72, 38 70, 34 54 Z" fill="#ffffff" stroke="#94a3b8" strokeWidth="2" />
+        <path d="M42 58 C 46 50, 56 50, 60 62" stroke="#cbd5e1" strokeWidth="2" strokeLinecap="round" />
 
         {/* Head */}
-        <circle
-          cx="56"
-          cy="30"
-          r="20"
-          fill="#FFFFFF"
-          stroke="#CBD5E1"
-          strokeWidth="3"
-        />
+        <circle cx="56" cy="30" r="19" fill="#f8fafc" stroke="#cbd5e1" strokeWidth="2.5" />
 
-        {/* Vivid Red 4-Lobe Rooster Comb on Top */}
-        <path
-          d="M42 16 C 39 6, 47 5, 50 11 C 53 4, 61 4, 63 11 C 66 5, 74 6, 74 13 C 77 9, 83 10, 80 20 C 76 22, 68 20, 60 20 Z"
-          fill="#DC2626"
-          stroke="#991B1B"
-          strokeWidth="2"
-          strokeLinejoin="round"
-        />
+        {/* Crimson Rooster Comb */}
+        <path d="M42 16 C 39 8, 47 6, 50 12 C 53 5, 61 5, 63 12 C 66 6, 74 7, 74 14 C 77 10, 83 11, 80 20 C 76 22, 68 20, 60 20 Z" fill="#dc2626" stroke="#991b1b" strokeWidth="1.5" />
 
-        {/* Soft Pink Cheek Blush */}
-        <ellipse cx="52" cy="38" rx="5" ry="3" fill="#FDA4AF" opacity="0.65" />
+        {/* Sharp Amber Beak */}
+        <polygon points="70,28 88,35 70,42" fill="#f59e0b" stroke="#d97706" strokeWidth="1.5" />
 
-        {/* Sharp Golden-Orange Beak */}
-        <polygon
-          points="70,28 90,35 70,43"
-          fill="#F59E0B"
-          stroke="#D97706"
-          strokeWidth="2"
-          strokeLinejoin="round"
-        />
-        <line x1="70" y1="35" x2="86" y2="35" stroke="#B45309" strokeWidth="1.5" strokeLinecap="round" />
+        {/* Wattle */}
+        <path d="M68 43 C 74 45, 73 54, 67 52 C 64 50, 64 44, 68 43 Z" fill="#dc2626" stroke="#991b1b" strokeWidth="1.2" />
 
-        {/* Red Wattle dangling below beak */}
-        <path
-          d="M68 44 C 74 46, 73 56, 67 53 C 64 51, 64 45, 68 44 Z"
-          fill="#DC2626"
-          stroke="#991B1B"
-          strokeWidth="1.5"
-        />
-
-        {/* Big Cartoon Chicken Eye */}
-        <circle cx="58" cy="27" r="9.5" fill="#FFFFFF" stroke="#0F172A" strokeWidth="2.4" />
-        <circle cx="60.5" cy="27" r="5.5" fill="#0F172A" />
-        <circle cx="62.5" cy="24.5" r="2.2" fill="#FFFFFF" />
-        <circle cx="58.5" cy="29" r="1.1" fill="#FFFFFF" />
-        <path
-          d="M50 18 C 55 16, 64 17, 68 20"
-          stroke="#0F172A"
-          strokeWidth="2"
-          strokeLinecap="round"
-        />
+        {/* Alert Sharp Eye */}
+        <circle cx="58" cy="27" r="7" fill="#fef08a" stroke="#ca8a04" strokeWidth="1" />
+        <circle cx="59.5" cy="27" r="4" fill="#0f172a" />
+        <circle cx="61" cy="25" r="1.5" fill="#ffffff" />
       </svg>
     </div>
   );
@@ -1497,7 +1469,7 @@ export function ChickenGame({ game }: { game: GameRow }) {
         {/* Status header with current road and current multiplier */}
         <div className="flex items-center justify-between border-b border-border/40 bg-black/60 px-4 py-2.5 text-xs">
           <span className="font-bold flex items-center gap-2 text-foreground text-sm">
-            <span className="text-xl">🐔</span> Chicken Road 2.0
+            CHICKEN ROAD · HIGHWAY CROSSING
           </span>
           <div className="flex items-center gap-4">
             <span className="text-xs text-muted-foreground font-medium">
