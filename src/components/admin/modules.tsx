@@ -370,7 +370,7 @@ export function CoinsMod() {
           <Field label="Maximum"><input type="number" value={d.max ?? 10000} onChange={(e) => set({ max: Number(e.target.value) })} className={inputCls} /></Field>
           <Field label="Requests per day"><input type="number" value={d.daily_limit ?? 3} onChange={(e) => set({ daily_limit: Number(e.target.value) })} className={inputCls} /></Field>
         </div>
-        <div className="mt-3 grid gap-3 md:grid-cols-2">
+                <div className="mt-3 grid gap-3 md:grid-cols-3">
           <Field label="1st Deposit Wager Multiplier (e.g. 2 for 2x)">
             <input
               type="number"
@@ -381,13 +381,23 @@ export function CoinsMod() {
               className={inputCls}
             />
           </Field>
-          <Field label="2nd+ Deposit Wager Multiplier (e.g. 1 for 1x)">
+          <Field label="2nd Deposit Wager Multiplier (e.g. 1 for 1x)">
             <input
               type="number"
               step="0.1"
               min="0"
-              value={d.wager_next ?? 1}
-              onChange={(e) => set({ wager_next: Number(e.target.value) })}
+              value={d.wager_second ?? 1}
+              onChange={(e) => set({ wager_second: Number(e.target.value) })}
+              className={inputCls}
+            />
+          </Field>
+          <Field label="3rd+ Deposit Wager Multiplier (e.g. 1 for 1x)">
+            <input
+              type="number"
+              step="0.1"
+              min="0"
+              value={d.wager_third ?? d.wager_next ?? 1}
+              onChange={(e) => set({ wager_third: Number(e.target.value), wager_next: Number(e.target.value) })}
               className={inputCls}
             />
           </Field>
